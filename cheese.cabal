@@ -1,0 +1,42 @@
+name:                cheese
+version:             0.1.0.0
+synopsis:            Chess engine
+description:         Computer chess with various optimizations.
+homepage:            http://github.com/bryangarza/cheese
+license:             MIT
+license-file:        LICENSE
+author:              Bryan Garza
+maintainer:          brygarza+github@gmail.com
+copyright:           Bryan Garza
+category:            AI, Game
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+library
+  ghc-options:         -Wall
+  hs-source-dirs:      src
+  exposed-modules:     Cheese
+  build-depends:       base >= 4.7 && < 5
+  default-language:    Haskell2010
+
+executable cheese-exe
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , cheese
+  default-language:    Haskell2010
+
+test-suite cheese-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  build-depends:       base
+                     , cheese
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/bryangarza/cheese
