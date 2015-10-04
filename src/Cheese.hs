@@ -2,15 +2,20 @@
 {-# LANGUAGE BinaryLiterals #-}
 module Cheese where
 
-import Data.Char (intToDigit)
-import Data.Word
-import Text.Printf
-import Data.Bits
-import Data.List (intercalate, intersperse)
-import Data.List.Split
+-- Base imports.
+import Data.Bits       (testBit)
+import Data.Char       (intToDigit)
+import Data.List       (intercalate, intersperse)
+import Data.Word       (Word64)
+import Text.Printf     (printf)
 
+-- External imports.
+import Data.List.Split (chunksOf)
+
+-- | 8x8 square to represent one piece type's layer.
 type BoardLayer = Word64
 
+-- | Board representation (bitboard).
 data Board = Board
     { whitePawns   :: BoardLayer
     , whiteKnights :: BoardLayer
