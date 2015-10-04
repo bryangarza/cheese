@@ -86,10 +86,6 @@ layer xs c = xs'
   where xs'     = map replace (pieceBools xs)
         replace = \x -> if x then c else emptySym
 
--- | Print a layer to stdout.
-putLayer :: BoardLayer -> Char -> IO ()
-putLayer xs c = putStrLn (layer xs c)
-
 -- | Overlay one layer onto another.
 overlay :: String -> String -> String
 overlay xs ys = merged
@@ -103,6 +99,10 @@ formatForPrint :: String -> String
 formatForPrint x  = intercalate "\n" spacedOut
   where spacedOut = map (intersperse ' ') split
         split     = chunksOf 8 x
+
+-- | Print a layer to stdout.
+putLayer :: BoardLayer -> IO ()
+putLayer xs = putStrLn $ formatForPrint (layer xs 'x')
 
 {-|
   Print all the layers overlayed. Looks like:
@@ -148,4 +148,4 @@ emptySquares = complement . foldr bitwiseOr (0 :: BoardLayer) . lsLayers
 
 -- | Print out board with empty squares marked, for debugging purposes.
 printEmptySquares :: Board -> IO ()
-printEmptySquares board = putStrLn $ formatForPrint $ layer (emptySquares board) 'x'
+printEmptySquares board = putLayer (emptySquares board)
