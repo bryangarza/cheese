@@ -26,27 +26,29 @@ data Board = Board
     , blackKing    :: BoardLayer
     } deriving (Eq)
 
--- | Print each board layer in hexadecimal.
-instance Show Board where
-  show (Board wp wn wb wr wq wk bp bn bb br bq bk) =
-    concat [ "White Pawns:   " ++ fmt wp
-           , "White Knights: " ++ fmt wn
-           , "White Biships: " ++ fmt wp
-           , "White Rooks:   " ++ fmt wr
-           , "White Queens:  " ++ fmt wq
-           , "White King:    " ++ fmt wk
-           , "Black Pawns:   " ++ fmt bp
-           , "Black Knights: " ++ fmt bb
-           , "Black Bishops: " ++ fmt bb
-           , "Black Rooks:   " ++ fmt br
-           , "Black Queens:  " ++ fmt bq
-           , "Black King:    " ++ fmt' bk ]
-    where fmt  = printf "0x%08x\n"
-          fmt' = printf "0x%08x"
+-- | List each board layer in hexadecimal.
+showHex :: Board -> String
+showHex (Board wp wn wb wr wq wk bp bn bb br bq bk) =
+  concat [ "White Pawns:   " ++ fmt wp
+         , "White Knights: " ++ fmt wn
+         , "White Biships: " ++ fmt wp
+         , "White Rooks:   " ++ fmt wr
+         , "White Queens:  " ++ fmt wq
+         , "White King:    " ++ fmt wk
+         , "Black Pawns:   " ++ fmt bp
+         , "Black Knights: " ++ fmt bb
+         , "Black Bishops: " ++ fmt bb
+         , "Black Rooks:   " ++ fmt br
+         , "Black Queens:  " ++ fmt bq
+         , "Black King:    " ++ fmt' bk ]
+  where fmt  = printf "0x%08x\n"
+        fmt' = printf "0x%08x"
 
+-- | Board with no pieces on it.
 emptyBoard :: Board
 emptyBoard = Board 0 0 0 0 0 0 0 0 0 0 0 0
 
+-- | Starting position.
 initialBoard :: Board
 initialBoard = Board
     { whitePawns   = 0b0000000000000000000000000000000000000000000000001111111100000000
@@ -63,6 +65,7 @@ initialBoard = Board
     , blackKing    = 0b0000100000000000000000000000000000000000000000000000000000000000
     }
 
+-- | Symbol for empty square when printing out board.
 emptySym :: Char
 emptySym = '.'
 
@@ -101,21 +104,22 @@ overlay xs ys = merged
     p p p p p p p p
     r b n q k n b r
 -}
-overlayedLayers = intercalate "\n" spacedOut
-  where spacedOut  = map (intersperse ' ') split
-        split      = chunksOf 8 mergedAll
-        mergedAll  = foldr overlay (layer (0 :: BoardLayer) '.') xs
-        xs = map layer' [ (whitePawns initialBoard,   'p')
-                        , (whiteKnights initialBoard, 'n')
-                        , (whiteBishops initialBoard, 'b')
-                        , (whiteRooks initialBoard,   'r')
-                        , (whiteQueens initialBoard,  'q')
-                        , (whiteKing initialBoard,    'k')
-                        , (blackPawns initialBoard,   'P')
-                        , (blackKnights initialBoard, 'N')
-                        , (blackBishops initialBoard, 'B')
-                        , (blackRooks initialBoard,   'R')
-                        , (blackQueens initialBoard,  'Q')
-                        , (blackKing initialBoard,    'K')
-                        ]
-        layer' (piece, letter) = layer piece letter
+instance Show Board where
+  show board = intercalate "\n" spacedOut
+    where spacedOut  = map (intersperse ' ') split
+          split      = chunksOf 8 mergedAll
+          mergedAll  = foldr overlay (layer (0 :: BoardLayer) '.') xs
+          xs = map layer' [ (whitePawns board,   'p')
+                          , (whiteKnights board, 'n')
+                          , (whiteBishops board, 'b')
+                          , (whiteRooks board,   'r')
+                          , (whiteQueens board,  'q')
+                          , (whiteKing board,    'k')
+                          , (blackPawns board,   'P')
+                          , (blackKnights board, 'N')
+                          , (blackBishops board, 'B')
+                          , (blackRooks board,   'R')
+                          , (blackQueens board,  'Q')
+                          , (blackKing board,    'K')
+                          ]
+          layer' (piece, letter) = layer piece letter
