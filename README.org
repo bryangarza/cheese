@@ -1,0 +1,3 @@
+* Cheese: A Chess AI
+
+This is my project for [[https://www.cs.csustan.edu/~mmartin/4480/][CS 4480: Artificial Intelligence]].
