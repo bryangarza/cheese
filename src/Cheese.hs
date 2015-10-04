@@ -3,7 +3,7 @@
 module Cheese where
 
 -- Base imports.
-import Data.Bits       (Bits, complement, testBit, (.|.))
+import Data.Bits       (Bits, complement, shiftL, shiftR, testBit, (.&.), (.|.))
 import Data.Char       (intToDigit)
 import Data.List       (intercalate, intersperse)
 import Data.Word       (Word64)
@@ -149,3 +149,20 @@ emptySquares = complement . foldr bitwiseOr (0 :: BoardLayer) . lsLayers
 -- | Print out board with empty squares marked, for debugging purposes.
 printEmptySquares :: Board -> IO ()
 printEmptySquares board = putLayer (emptySquares board)
+
+-- TODO: Promotion, en passant, two-square initial move rule...
+-- | All white pawns moved up one square.
+whitePawnMoves :: Board -> BoardLayer
+whitePawnMoves board = shiftL (whitePawns board) 8
+
+-- | All black pawns moved up one square.
+blackPawnMoves :: Board -> BoardLayer
+blackPawnMoves board = shiftR (whitePawns board) 8
+
+-- | Rename infix `and` to word (exists in Data.Bits but is not exported).
+bitwiseAnd :: Bits a => a -> a -> a
+bitwiseAnd x y = x .&. y
+
+-- | Moves where the destination square is empty.
+movesToEmptySquares :: Board -> BoardLayer -> BoardLayer
+movesToEmptySquares board bl = bitwiseAnd (emptySquares board) bl
