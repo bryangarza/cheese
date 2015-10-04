@@ -6,7 +6,7 @@ import Data.Char (intToDigit)
 import Data.Word
 import Text.Printf
 import Data.Bits
-import Data.List (intercalate)
+import Data.List (intercalate, intersperse)
 import Data.List.Split
 
 type BoardLayer = Word64
@@ -92,18 +92,19 @@ overlay xs ys = merged
 
 {-|
   Print all the layers overlayed. Look like:
-    RBNQKNBR
-    PPPPPPPP
-    ........
-    ........
-    ........
-    ........
-    pppppppp
-    rbnqknbr
+    R B N Q K N B R
+    P P P P P P P P
+    . . . . . . . .
+    . . . . . . . .
+    . . . . . . . .
+    . . . . . . . .
+    p p p p p p p p
+    r b n q k n b r
 -}
-try = intercalate "\n" split
-  where split = chunksOf 8 mergedAll
-        mergedAll = foldr overlay (layer (0 :: BoardLayer) '.') xs
+overlayedLayers = intercalate "\n" spacedOut
+  where spacedOut  = map (intersperse ' ') split
+        split      = chunksOf 8 mergedAll
+        mergedAll  = foldr overlay (layer (0 :: BoardLayer) '.') xs
         xs = map layer' [ ((whitePawns initialBoard),   'p')
                         , ((whiteKnights initialBoard), 'n')
                         , ((whiteBishops initialBoard), 'b')
@@ -117,4 +118,4 @@ try = intercalate "\n" split
                         , ((blackQueens initialBoard),  'Q')
                         , ((blackKing initialBoard),    'K')
                         ]
-          where layer' (piece, letter) = layer piece letter
+        layer' (piece, letter) = layer piece letter
