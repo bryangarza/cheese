@@ -3,7 +3,7 @@
 module Cheese where
 
 -- Base imports.
-import Data.Bits       (testBit)
+import Data.Bits       (Bits, complement, testBit, (.|.))
 import Data.Char       (intToDigit)
 import Data.List       (intercalate, intersperse)
 import Data.Word       (Word64)
@@ -98,6 +98,12 @@ overlay xs ys = merged
         pieceOrEmpty (x, '.') = x
         pieceOrEmpty (_, _)   = emptySym
 
+-- | Add column of spaces between each file.
+formatForPrint :: String -> String
+formatForPrint x  = intercalate "\n" spacedOut
+  where spacedOut = map (intersperse ' ') split
+        split     = chunksOf 8 x
+
 {-|
   Print all the layers overlayed. Looks like:
     R B N Q K N B R
@@ -110,10 +116,8 @@ overlay xs ys = merged
     r b n q k n b r
 -}
 instance Show Board where
-  show board = intercalate "\n" spacedOut
-    where spacedOut  = map (intersperse ' ') split
-          split      = chunksOf 8 mergedAll
-          mergedAll  = foldr overlay (layer (0 :: BoardLayer) '.') xs
+  show board = formatForPrint mergedAll
+    where mergedAll  = foldr overlay (layer (0 :: BoardLayer) '.') xs
           xs = map layer' [ (whitePawns board,   'p')
                           , (whiteKnights board, 'n')
                           , (whiteBishops board, 'b')
@@ -128,3 +132,20 @@ instance Show Board where
                           , (blackKing board,    'K')
                           ]
           layer' (piece, letter) = layer piece letter
+
+-- | Board layers as a list instead of as data fields.
+lsLayers :: Board -> [BoardLayer]
+lsLayers (Board a b c d e f g h i j k l) = [a,b,c,d,e,f,g,h,i,j,k,l]
+
+-- | Rename infix `or` to word (exists in Data.Bits but is not exported).
+bitwiseOr :: Bits a => a -> a -> a
+bitwiseOr x y = x .|. y
+
+-- | Find all empty squares on a given board.
+-- ~(whitePawns|whiteKnights|...|blackKing)
+emptySquares :: Board -> BoardLayer
+emptySquares = complement . foldr bitwiseOr (0 :: BoardLayer) . lsLayers
+
+-- | Print out board with empty squares marked, for debugging purposes.
+printEmptySquares :: Board -> IO ()
+printEmptySquares board = putStrLn $ formatForPrint $ layer (emptySquares board) 'x'
