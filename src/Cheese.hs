@@ -70,7 +70,7 @@ emptySym = '.'
 pieceBools :: BoardLayer -> [Bool]
 pieceBools x = thing' x 63
   where thing' _ (-1)  = []
-        thing' x index = testBit x index : (thing' x (pred index))
+        thing' x index = testBit x index : thing' x (pred index)
 
 -- | Convert a binary piece layer into a string using supplied Char as representation.
 layer :: BoardLayer -> Char -> String
@@ -85,13 +85,13 @@ putLayer xs c = putStrLn (layer xs c)
 -- | Overlay one layer onto another.
 overlay :: String -> String -> String
 overlay xs ys = merged
-  where merged = map pieceOrEmpty (zip xs ys)
+  where merged = zipWith (curry pieceOrEmpty) xs ys
         pieceOrEmpty ('.', y) = y
         pieceOrEmpty (x, '.') = x
         pieceOrEmpty (_, _)   = emptySym
 
 {-|
-  Print all the layers overlayed. Look like:
+  Print all the layers overlayed. Looks like:
     R B N Q K N B R
     P P P P P P P P
     . . . . . . . .
@@ -105,17 +105,17 @@ overlayedLayers = intercalate "\n" spacedOut
   where spacedOut  = map (intersperse ' ') split
         split      = chunksOf 8 mergedAll
         mergedAll  = foldr overlay (layer (0 :: BoardLayer) '.') xs
-        xs = map layer' [ ((whitePawns initialBoard),   'p')
-                        , ((whiteKnights initialBoard), 'n')
-                        , ((whiteBishops initialBoard), 'b')
-                        , ((whiteRooks initialBoard),   'r')
-                        , ((whiteQueens initialBoard),  'q')
-                        , ((whiteKing initialBoard),    'k')
-                        , ((blackPawns initialBoard),   'P')
-                        , ((blackKnights initialBoard), 'N')
-                        , ((blackBishops initialBoard), 'B')
-                        , ((blackRooks initialBoard),   'R')
-                        , ((blackQueens initialBoard),  'Q')
-                        , ((blackKing initialBoard),    'K')
+        xs = map layer' [ (whitePawns initialBoard,   'p')
+                        , (whiteKnights initialBoard, 'n')
+                        , (whiteBishops initialBoard, 'b')
+                        , (whiteRooks initialBoard,   'r')
+                        , (whiteQueens initialBoard,  'q')
+                        , (whiteKing initialBoard,    'k')
+                        , (blackPawns initialBoard,   'P')
+                        , (blackKnights initialBoard, 'N')
+                        , (blackBishops initialBoard, 'B')
+                        , (blackRooks initialBoard,   'R')
+                        , (blackQueens initialBoard,  'Q')
+                        , (blackKing initialBoard,    'K')
                         ]
         layer' (piece, letter) = layer piece letter
