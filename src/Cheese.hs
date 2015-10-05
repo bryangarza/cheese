@@ -31,23 +31,29 @@ data Board = Board
     , blackKing    :: BoardLayer
     } deriving (Eq)
 
+-- | Board layers as a list instead of as data fields.
+lsLayers :: Board -> [BoardLayer]
+lsLayers (Board a b c d e f g h i j k l) = [a,b,c,d,e,f,g,h,i,j,k,l]
+
+lsLayerTexts = [ "White Pawns:   "
+               , "White Knights: "
+               , "White Biships: "
+               , "White Rooks:   "
+               , "White Queens:  "
+               , "White King:    "
+               , "Black Pawns:   "
+               , "Black Knights: "
+               , "Black Bishops: "
+               , "Black Rooks:   "
+               , "Black Queens:  "
+               , "Black King:    " ]
+
 -- | List each board layer in hexadecimal.
 showHex :: Board -> String
-showHex (Board wp wn wb wr wq wk bp bn bb br bq bk) =
-  concat [ "White Pawns:   " ++ fmt wp
-         , "White Knights: " ++ fmt wn
-         , "White Biships: " ++ fmt wp
-         , "White Rooks:   " ++ fmt wr
-         , "White Queens:  " ++ fmt wq
-         , "White King:    " ++ fmt wk
-         , "Black Pawns:   " ++ fmt bp
-         , "Black Knights: " ++ fmt bb
-         , "Black Bishops: " ++ fmt bb
-         , "Black Rooks:   " ++ fmt br
-         , "Black Queens:  " ++ fmt bq
-         , "Black King:    " ++ fmt' bk ]
-  where fmt  = printf "0x%08x\n"
-        fmt' = printf "0x%08x"
+showHex board = res
+  where res = concat (zipWith fmt lsLayerTexts eachLayer)
+        fmt desc xs = desc ++ (printf "0x%08x\n" xs)
+        eachLayer = lsLayers board
 
 -- | Board with no pieces on it.
 emptyBoard :: Board
@@ -104,6 +110,9 @@ formatForPrint x  = intercalate "\n" spacedOut
 putLayer :: BoardLayer -> IO ()
 putLayer xs = putStrLn $ formatForPrint (layer xs 'x')
 
+eachLetter :: String
+eachLetter = ['p','n','b','r','q','k','P','N','B','R','Q','K']
+
 {-|
   Print all the layers overlayed. Looks like:
     R B N Q K N B R
@@ -117,25 +126,10 @@ putLayer xs = putStrLn $ formatForPrint (layer xs 'x')
 -}
 instance Show Board where
   show board = formatForPrint mergedAll
-    where mergedAll  = foldr overlay (layer (0 :: BoardLayer) '.') xs
-          xs = map layer' [ (whitePawns board,   'p')
-                          , (whiteKnights board, 'n')
-                          , (whiteBishops board, 'b')
-                          , (whiteRooks board,   'r')
-                          , (whiteQueens board,  'q')
-                          , (whiteKing board,    'k')
-                          , (blackPawns board,   'P')
-                          , (blackKnights board, 'N')
-                          , (blackBishops board, 'B')
-                          , (blackRooks board,   'R')
-                          , (blackQueens board,  'Q')
-                          , (blackKing board,    'K')
-                          ]
-          layer' (piece, letter) = layer piece letter
-
--- | Board layers as a list instead of as data fields.
-lsLayers :: Board -> [BoardLayer]
-lsLayers (Board a b c d e f g h i j k l) = [a,b,c,d,e,f,g,h,i,j,k,l]
+    where mergedAll  = foldr overlay initial xs
+          initial    = layer (0 :: BoardLayer) '.'
+          xs         = zipWith layer eachLayer eachLetter
+          eachLayer  = lsLayers board
 
 -- | Rename infix `or` to word (exists in Data.Bits but is not exported).
 bitwiseOr :: Bits a => a -> a -> a
