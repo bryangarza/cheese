@@ -52,7 +52,7 @@ lsLayerTexts = [ "White Pawns:   "
 showHex :: Board -> String
 showHex board = res
   where res = concat (zipWith fmt lsLayerTexts eachLayer)
-        fmt desc xs = desc ++ (printf "0x%08x\n" xs)
+        fmt desc pieceLayer = desc ++ printf "0x%08x\n" pieceLayer
         eachLayer = lsLayers board
 
 -- | Board with no pieces on it.
@@ -111,7 +111,7 @@ putLayer :: BoardLayer -> IO ()
 putLayer xs = putStrLn $ formatForPrint (layer xs 'x')
 
 eachLetter :: String
-eachLetter = ['p','n','b','r','q','k','P','N','B','R','Q','K']
+eachLetter = "pnbrqkPNBRQK"
 
 {-|
   Print all the layers overlayed. Looks like:
@@ -142,16 +142,16 @@ emptySquares = complement . foldr bitwiseOr (0 :: BoardLayer) . lsLayers
 
 -- | Print out board with empty squares marked, for debugging purposes.
 printEmptySquares :: Board -> IO ()
-printEmptySquares board = putLayer (emptySquares board)
+printEmptySquares = putLayer . emptySquares
 
 -- TODO: Promotion, en passant, two-square initial move rule...
 -- | All white pawns moved up one square.
 whitePawnMoves :: Board -> BoardLayer
-whitePawnMoves board = shiftL (whitePawns board) 8
+whitePawnMoves = flip shiftL 8 . whitePawns
 
 -- | All black pawns moved up one square.
 blackPawnMoves :: Board -> BoardLayer
-blackPawnMoves board = shiftR (whitePawns board) 8
+blackPawnMoves = flip shiftR 8 . whitePawns
 
 -- | Rename infix `and` to word (exists in Data.Bits but is not exported).
 bitwiseAnd :: Bits a => a -> a -> a
@@ -159,4 +159,4 @@ bitwiseAnd x y = x .&. y
 
 -- | Moves where the destination square is empty.
 movesToEmptySquares :: Board -> BoardLayer -> BoardLayer
-movesToEmptySquares board bl = bitwiseAnd (emptySquares board) bl
+movesToEmptySquares = bitwiseAnd . emptySquares
