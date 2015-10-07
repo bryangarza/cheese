@@ -35,6 +35,13 @@ data Board = Board
 lsLayers :: Board -> [BoardLayer]
 lsLayers (Board a b c d e f g h i j k l) = [a,b,c,d,e,f,g,h,i,j,k,l]
 
+data Color = Black | White
+
+-- | Either black or white layers only.
+lsLayersHalf :: Color -> Board -> [BoardLayer]
+lsLayersHalf Black (Board _ _ _ _ _ _ g h i j k l) = [g,h,i,j,k,l]
+lsLayersHalf White (Board a b c d e f _ _ _ _ _ _) = [a,b,c,d,e,f]
+
 lsLayerTexts = [ "White Pawns:   "
                , "White Knights: "
                , "White Biships: "
@@ -160,3 +167,39 @@ bitwiseAnd x y = x .&. y
 -- | Moves where the destination square is empty.
 movesToEmptySquares :: Board -> BoardLayer -> BoardLayer
 movesToEmptySquares = bitwiseAnd . emptySquares
+
+-- | Possible files (columns) of the board.
+data File = A | B | C | D | E | F | G | H
+
+-- | Clear out piece positions where moving left/right would fall off the board.
+clearFile :: File -> BoardLayer
+clearFile x = case x of
+  A -> 0b0111111101111111011111110111111101111111011111110111111101111111
+  H -> 0b1111111011111110111111101111111011111110111111101111111011111110
+
+-- | Because (.|.) is arity 2, use folds.
+orFold :: [BoardLayer] -> BoardLayer
+orFold = foldr bitwiseOr 0
+
+-- | Because (.&.) is arity 2, use folds.
+andFold :: [BoardLayer] -> BoardLayer
+andFold = foldr bitwiseAnd 1
+
+-- | Generate moves where the king can move or attack.
+kingMoves :: Color -> Board -> BoardLayer
+kingMoves color board = valid
+  where king  = case color of
+          Black -> blackKing board
+          White -> whiteKing board
+        clipA = king .&. clearFile A
+        clipH = king .&. clearFile H
+        n     = shiftL king  8
+        e     = shiftR clipH 1
+        s     = shiftR king  8
+        w     = shiftL clipA 1
+        ne    = shiftL clipH 7
+        se    = shiftR clipH 9
+        sw    = shiftR clipA 7
+        nw    = shiftL clipA 9
+        moves = foldr bitwiseOr 0 [n, s, e, w, ne, se, sw, nw]
+        valid = moves .&. complement (orFold $ lsLayersHalf color board)
