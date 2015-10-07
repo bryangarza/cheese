@@ -82,9 +82,9 @@ emptySym = '.'
 
 -- | Convert a binary piece layer into True and False layer.
 pieceBools :: BoardLayer -> [Bool]
-pieceBools x = thing' x 63
-  where thing' _ (-1)  = []
-        thing' x index = testBit x index : thing' x (pred index)
+pieceBools x = pb x 63
+  where pb _ (-1)  = []
+        pb x index = testBit x index : pb x (pred index)
 
 -- | Convert a binary piece layer into a string using supplied Char as representation.
 layer :: BoardLayer -> Char -> String
@@ -127,7 +127,7 @@ eachLetter = "pnbrqkPNBRQK"
 instance Show Board where
   show board = formatForPrint mergedAll
     where mergedAll  = foldr overlay initial xs
-          initial    = layer (0 :: BoardLayer) '.'
+          initial    = layer 0 '.'
           xs         = zipWith layer eachLayer eachLetter
           eachLayer  = lsLayers board
 
@@ -138,7 +138,7 @@ bitwiseOr x y = x .|. y
 -- | Find all empty squares on a given board.
 -- ~(whitePawns|whiteKnights|...|blackKing)
 emptySquares :: Board -> BoardLayer
-emptySquares = complement . foldr bitwiseOr (0 :: BoardLayer) . lsLayers
+emptySquares = complement . foldr bitwiseOr 0 . lsLayers
 
 -- | Print out board with empty squares marked, for debugging purposes.
 printEmptySquares :: Board -> IO ()
