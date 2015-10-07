@@ -185,7 +185,7 @@ orFold = foldr bitwiseOr 0
 andFold :: [BoardLayer] -> BoardLayer
 andFold = foldr bitwiseAnd 1
 
--- | Generate moves where the king can move or attack.
+-- | Generate moves where the king can move to.
 kingMoves :: Color -> Board -> BoardLayer
 kingMoves color board = valid
   where king  = case color of
@@ -193,13 +193,9 @@ kingMoves color board = valid
           White -> whiteKing board
         clipA = king .&. clearFile A
         clipH = king .&. clearFile H
-        n     = shiftL king  8
-        e     = shiftR clipH 1
-        s     = shiftR king  8
-        w     = shiftL clipA 1
-        ne    = shiftL clipH 7
-        se    = shiftR clipH 9
-        sw    = shiftR clipA 7
-        nw    = shiftL clipA 9
-        moves = foldr bitwiseOr 0 [n, s, e, w, ne, se, sw, nw]
+        -- north, west, northeast, northwest
+        lefts = map (uncurry shiftL) [(king,8), (clipA,1), (clipH,7), (clipA,9)]
+        -- south, east, southwest, southeast
+        rights = map (uncurry shiftR) [(king, 8), (clipH, 1), (clipA,7), (clipH,9)]
+        moves = orFold (lefts ++ rights)
         valid = moves .&. complement (orFold $ lsLayersHalf color board)
