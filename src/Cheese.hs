@@ -3,11 +3,11 @@
 module Cheese where
 
 -- Base imports.
-import Data.Bits       (Bits, complement, shiftL, shiftR, testBit, (.&.), (.|.))
-import Data.Char       (intToDigit)
-import Data.List       (intercalate, intersperse)
-import Data.Word       (Word64)
-import Text.Printf     (printf)
+import Data.Bits   (Bits, complement, shiftL, shiftR, testBit, (.&.), (.|.))
+import Data.Char   (intToDigit)
+import Data.List   (intercalate, intersperse)
+import Data.Word   (Word64)
+import Text.Printf (printf)
 
 -- External imports.
 import Data.List.Split (chunksOf)
@@ -31,16 +31,13 @@ data Board = Board
     , blackKing    :: BoardLayer
     } deriving (Eq)
 
--- | Board layers as a list instead of as data fields.
-lsLayers :: Board -> [BoardLayer]
-lsLayers (Board a b c d e f g h i j k l) = [a,b,c,d,e,f,g,h,i,j,k,l]
-
 data Color = Black | White
 
--- | Either black or white layers only.
-lsLayersHalf :: Color -> Board -> [BoardLayer]
-lsLayersHalf Black (Board _ _ _ _ _ _ g h i j k l) = [g,h,i,j,k,l]
-lsLayersHalf White (Board a b c d e f _ _ _ _ _ _) = [a,b,c,d,e,f]
+-- | Board layers as a list instead of as data fields.
+lsLayers :: Maybe Color -> Board -> [BoardLayer]
+lsLayers (Just Black) (Board _ _ _ _ _ _ g h i j k l) = [g,h,i,j,k,l]
+lsLayers (Just White) (Board a b c d e f _ _ _ _ _ _) = [a,b,c,d,e,f]
+lsLayers Nothing      (Board a b c d e f g h i j k l) = [a,b,c,d,e,f,g,h,i,j,k,l]
 
 lsLayerTexts = [ "White Pawns:   "
                , "White Knights: "
@@ -60,7 +57,7 @@ showHex :: Board -> String
 showHex board = res
   where res = concat (zipWith fmt lsLayerTexts eachLayer)
         fmt desc pieceLayer = desc ++ printf "0x%08x\n" pieceLayer
-        eachLayer = lsLayers board
+        eachLayer = lsLayers Nothing board
 
 -- | Board with no pieces on it.
 emptyBoard :: Board
@@ -136,7 +133,7 @@ instance Show Board where
     where mergedAll  = foldr overlay initial xs
           initial    = layer 0 '.'
           xs         = zipWith layer eachLayer eachLetter
-          eachLayer  = lsLayers board
+          eachLayer  = lsLayers Nothing board
 
 -- | Rename infix `or` to word (exists in Data.Bits but is not exported).
 bitwiseOr :: Bits a => a -> a -> a
@@ -144,12 +141,12 @@ bitwiseOr x y = x .|. y
 
 -- | Find all empty squares on a given board.
 -- ~(whitePawns|whiteKnights|...|blackKing)
-emptySquares :: Board -> BoardLayer
-emptySquares = complement . foldr bitwiseOr 0 . lsLayers
+emptySquares :: Maybe Color -> Board -> BoardLayer
+emptySquares c b = complement (orFold $ lsLayers c b)
 
 -- | Print out board with empty squares marked, for debugging purposes.
-printEmptySquares :: Board -> IO ()
-printEmptySquares = putLayer . emptySquares
+printEmptySquares :: Maybe Color -> Board -> IO ()
+printEmptySquares c b = putLayer (emptySquares c b)
 
 -- TODO: Promotion, en passant, two-square initial move rule...
 -- | All white pawns moved up one square.
@@ -165,8 +162,8 @@ bitwiseAnd :: Bits a => a -> a -> a
 bitwiseAnd x y = x .&. y
 
 -- | Moves where the destination square is empty.
-movesToEmptySquares :: Board -> BoardLayer -> BoardLayer
-movesToEmptySquares = bitwiseAnd . emptySquares
+movesToEmptySquares :: Maybe Color -> Board -> BoardLayer -> BoardLayer
+movesToEmptySquares c b bl = bitwiseAnd (emptySquares c b) bl
 
 -- | Possible files (columns) of the board.
 data File = A | B | C | D | E | F | G | H
@@ -185,7 +182,7 @@ orFold = foldr bitwiseOr 0
 andFold :: [BoardLayer] -> BoardLayer
 andFold = foldr bitwiseAnd 1
 
--- | Generate moves where the king can move to.
+-- | Generate possible moves for king piece.
 kingMoves :: Color -> Board -> BoardLayer
 kingMoves color board = valid
   where king  = case color of
@@ -198,4 +195,4 @@ kingMoves color board = valid
         -- south, east, southwest, southeast
         rights = map (uncurry shiftR) [(king, 8), (clipH, 1), (clipA,7), (clipH,9)]
         moves = orFold (lefts ++ rights)
-        valid = moves .&. complement (orFold $ lsLayersHalf color board)
+        valid = movesToEmptySquares (Just color) board moves
