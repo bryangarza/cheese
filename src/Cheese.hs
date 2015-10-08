@@ -172,6 +172,8 @@ data File = A | B | C | D | E | F | G | H
 clearFile :: File -> BoardLayer
 clearFile x = case x of
   A -> 0b0111111101111111011111110111111101111111011111110111111101111111
+  B -> 0b1011111110111111101111111011111110111111101111111011111110111111
+  G -> 0b1111110111111101111111011111110111111101111111011111110111111101
   H -> 0b1111111011111110111111101111111011111110111111101111111011111110
 
 -- | Because (.|.) is arity 2, use folds.
@@ -196,3 +198,29 @@ kingMoves color board = valid
         rights = map (uncurry shiftR) [(king, 8), (clipH, 1), (clipA,7), (clipH,9)]
         moves = orFold (lefts ++ rights)
         valid = movesToEmptySquares (Just color) board moves
+
+-- 8 ~ ~ ~ ~ ~ ~ ~ ~
+-- 7 ~ ~ ~ ~ ~ ~ ~ ~
+-- 6 ~ ~ 2 ~ 3 ~ ~ ~
+-- 5 ~ 1 ~ ~ ~ 4 ~ ~
+-- 4 ~ ~ ~ N ~ ~ ~ ~
+-- 3 ~ 8 ~ ~ ~ 5 ~ ~
+-- 2 ~ ~ 7 ~ 6 ~ ~ ~
+-- 1 ~ ~ ~ ~ ~ ~ ~ ~
+--   A B C D E F G H
+
+knightMoves :: Board -> BoardLayer
+knightMoves board = valid
+  where knight = whiteKnights board
+        clipA = knight .&. clearFile A
+        clipB = knight .&. clearFile B
+        clipAB = clipA .&. clipB
+        clipG = knight .&. clearFile G
+        clipH = knight .&. clearFile H
+        clipGH = clipG .&. clipH
+        -- pos4, pos1, pos3, pos2
+        lefts = map (uncurry shiftL) [(clipGH,6), (clipAB,10), (clipG,15), (clipA,17)]
+        -- pos8, pos5, pos7, pos6
+        rights = map (uncurry shiftR) [(clipAB,6), (clipGH,10), (clipA,15), (clipG,17)]
+        moves = orFold (lefts ++ rights)
+        valid = movesToEmptySquares Nothing board moves
