@@ -155,7 +155,7 @@ whitePawnMoves = flip shiftL 8 . whitePawns
 
 -- | All black pawns moved up one square.
 blackPawnMoves :: Board -> BoardLayer
-blackPawnMoves = flip shiftR 8 . whitePawns
+blackPawnMoves = flip shiftR 8 . blackPawns
 
 -- | Rename infix `and` to word (exists in Data.Bits but is not exported).
 bitwiseAnd :: Bits a => a -> a -> a
