@@ -184,7 +184,13 @@ orFold = foldr bitwiseOr 0
 andFold :: [BoardLayer] -> BoardLayer
 andFold = foldr bitwiseAnd 1
 
--- | Generate possible moves for king piece.
+-- | Left and right shifts for sliding pieces King and Knight.
+shiftLR :: [(BoardLayer,Int)] -> [(BoardLayer,Int)] -> BoardLayer
+shiftLR l r = orFold ((map (uncurry shiftL) l) ++ (map (uncurry shiftR) r))
+
+-- | Possible moves and attacks for a king piece.
+-- | [north, west, northeast, northwest]
+-- | [south, east, southwest, southeast]
 kingMoves :: Color -> Board -> BoardLayer
 kingMoves color board = valid
   where king  = case color of
@@ -192,35 +198,35 @@ kingMoves color board = valid
           White -> whiteKing board
         clipA = king .&. clearFile A
         clipH = king .&. clearFile H
-        -- north, west, northeast, northwest
-        lefts = map (uncurry shiftL) [(king,8), (clipA,1), (clipH,7), (clipA,9)]
-        -- south, east, southwest, southeast
-        rights = map (uncurry shiftR) [(king, 8), (clipH, 1), (clipA,7), (clipH,9)]
-        moves = orFold (lefts ++ rights)
+        moves = shiftLR [(king,8), (clipA,1), (clipH,7), (clipA,9)]
+                        [(king,8), (clipH,1), (clipA,7), (clipH,9)]
         valid = movesToEmptySquares (Just color) board moves
 
--- 8 ~ ~ ~ ~ ~ ~ ~ ~
--- 7 ~ ~ ~ ~ ~ ~ ~ ~
--- 6 ~ ~ 2 ~ 3 ~ ~ ~
--- 5 ~ 1 ~ ~ ~ 4 ~ ~
--- 4 ~ ~ ~ N ~ ~ ~ ~
--- 3 ~ 8 ~ ~ ~ 5 ~ ~
--- 2 ~ ~ 7 ~ 6 ~ ~ ~
--- 1 ~ ~ ~ ~ ~ ~ ~ ~
---   A B C D E F G H
-
-knightMoves :: Board -> BoardLayer
-knightMoves board = valid
-  where knight = whiteKnights board
-        clipA = knight .&. clearFile A
-        clipB = knight .&. clearFile B
+{-|
+  Possible moves and attacks for a knight piece.
+    8 ~ ~ ~ ~ ~ ~ ~ ~
+    7 ~ ~ ~ ~ ~ ~ ~ ~
+    6 ~ ~ 2 ~ 3 ~ ~ ~
+    5 ~ 1 ~ ~ ~ 4 ~ ~
+    4 ~ ~ ~ N ~ ~ ~ ~
+    3 ~ 8 ~ ~ ~ 5 ~ ~
+    2 ~ ~ 7 ~ 6 ~ ~ ~
+    1 ~ ~ ~ ~ ~ ~ ~ ~
+      A B C D E F G H
+  Left shifts find postions 4, 1, 3, and 2.
+  Right shifts find postions 8, 5, 7, and 6.
+|-}
+knightMoves :: Color -> Board -> BoardLayer
+knightMoves color board = valid
+  where knight = case color of
+          Black -> blackKnights board
+          White -> whiteKnights board
+        clipA  = knight .&. clearFile A
+        clipB  = knight .&. clearFile B
         clipAB = clipA .&. clipB
-        clipG = knight .&. clearFile G
-        clipH = knight .&. clearFile H
+        clipG  = knight .&. clearFile G
+        clipH  = knight .&. clearFile H
         clipGH = clipG .&. clipH
-        -- pos4, pos1, pos3, pos2
-        lefts = map (uncurry shiftL) [(clipGH,6), (clipAB,10), (clipG,15), (clipA,17)]
-        -- pos8, pos5, pos7, pos6
-        rights = map (uncurry shiftR) [(clipAB,6), (clipGH,10), (clipA,15), (clipG,17)]
-        moves = orFold (lefts ++ rights)
-        valid = movesToEmptySquares Nothing board moves
+        moves  = shiftLR [(clipGH,6), (clipAB,10), (clipG,15), (clipA,17)]
+                         [(clipAB,6), (clipGH,10), (clipA,15), (clipG,17)]
+        valid  = movesToEmptySquares (Just color) board moves
