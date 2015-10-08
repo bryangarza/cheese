@@ -186,7 +186,11 @@ andFold = foldr bitwiseAnd 1
 
 -- | Left and right shifts for sliding pieces King and Knight.
 shiftLR :: [(BoardLayer,Int)] -> [(BoardLayer,Int)] -> BoardLayer
-shiftLR l r = orFold ((map (uncurry shiftL) l) ++ (map (uncurry shiftR) r))
+shiftLR l r = orFold (mapL ++ mapR)
+  where shiftL' = uncurry shiftL
+        mapL    = map shiftL' l
+        shiftR' = uncurry shiftR
+        mapR    = map shiftR' r
 
 -- | Possible moves and attacks for a king piece.
 -- | [north, west, northeast, northwest]
