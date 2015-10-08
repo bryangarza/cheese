@@ -94,7 +94,7 @@ pieceBools x = pb x 63
 layer :: BoardLayer -> Char -> String
 layer xs c = xs'
   where xs'     = map replace (pieceBools xs)
-        replace = \x -> if x then c else emptySym
+        replace x = if x then c else emptySym
 
 -- | Overlay one layer onto another.
 overlay :: String -> String -> String
@@ -163,7 +163,7 @@ bitwiseAnd x y = x .&. y
 
 -- | Moves where the destination square is empty.
 movesToEmptySquares :: Maybe Color -> Board -> BoardLayer -> BoardLayer
-movesToEmptySquares c b bl = bitwiseAnd (emptySquares c b) bl
+movesToEmptySquares c b = bitwiseAnd (emptySquares c b)
 
 -- | Possible files (columns) of the board.
 data File = A | B | C | D | E | F | G | H
