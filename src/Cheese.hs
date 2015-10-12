@@ -1,5 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE BinaryLiterals #-}
+{-# LANGUAGE BinaryLiterals       #-}
+{-# LANGUAGE OverloadedStrings    #-}
+
 module Cheese where
 
 -- Base imports.
@@ -86,13 +87,12 @@ emptySym = '.'
 
 -- | Convert a binary piece layer into True and False layer.
 pieceBools :: BoardLayer -> [Bool]
-pieceBools x = pb x 63
-  where pb _ (-1)  = []
-        pb x index = testBit x index : pb x (pred index)
+pieceBools x = map (testBit x) [63,62..0]
 
--- | Convert a binary piece layer into a string using supplied Char as representation.
-layer :: BoardLayer -> Char -> String
-layer xs c = xs'
+-- | Convert a binary piece layer into a string using supplied Char as
+-- representation.
+layerStr :: BoardLayer -> Char -> String
+layerStr xs c = xs'
   where xs'     = map replace (pieceBools xs)
         replace x = if x then c else emptySym
 
@@ -112,7 +112,7 @@ formatForPrint x  = intercalate "\n" spacedOut
 
 -- | Print a layer to stdout.
 putLayer :: BoardLayer -> IO ()
-putLayer xs = putStrLn $ formatForPrint (layer xs 'x')
+putLayer xs = putStrLn $ formatForPrint (layerStr xs 'x')
 
 eachLetter :: String
 eachLetter = "pnbrqkPNBRQK"
@@ -131,8 +131,8 @@ eachLetter = "pnbrqkPNBRQK"
 instance Show Board where
   show board = formatForPrint mergedAll
     where mergedAll  = foldr overlay initial xs
-          initial    = layer 0 '.'
-          xs         = zipWith layer eachLayer eachLetter
+          initial    = layerStr 0 '.'
+          xs         = zipWith layerStr eachLayer eachLetter
           eachLayer  = lsLayers Nothing board
 
 -- | Rename infix `or` to word (exists in Data.Bits but is not exported).
@@ -142,7 +142,7 @@ bitwiseOr x y = x .|. y
 -- | Find all empty squares on a given board.
 -- ~(whitePawns|whiteKnights|...|blackKing)
 emptySquares :: Maybe Color -> Board -> BoardLayer
-emptySquares c b = complement (orFold $ lsLayers c b)
+emptySquares c b = complement (orFold (lsLayers c b))
 
 -- | Print out board with empty squares marked, for debugging purposes.
 printEmptySquares :: Maybe Color -> Board -> IO ()
@@ -163,7 +163,7 @@ bitwiseAnd x y = x .&. y
 
 -- | Moves where the destination square is empty.
 movesToEmptySquares :: Maybe Color -> Board -> BoardLayer -> BoardLayer
-movesToEmptySquares c b = bitwiseAnd (emptySquares c b)
+movesToEmptySquares c b bl = bitwiseAnd (emptySquares c b) bl
 
 -- | Possible files (columns) of the board.
 data File = A | B | C | D | E | F | G | H
