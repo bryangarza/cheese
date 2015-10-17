@@ -27,3 +27,4 @@ cabal.sandbox.config
 /frontend/out
 /frontend/.repl
 /frontend/*.log
+*.liquid
