@@ -172,8 +172,8 @@ pawnMoves c b = moves
             attacksLR   = attacksL .|. attacksR
             attacksL    = shift maskA 9
             attacksR    = shift maskH 7
-            maskA       = pawns .&. maskFile A
-            maskH       = pawns .&. maskFile H
+            maskA       = pawns .&. clearFile A
+            maskH       = pawns .&. clearFile H
         -- enPassant =
 
 blackPawnMoves :: Board -> BoardLayer
@@ -194,11 +194,11 @@ movesToEmptySquares c b bl = bitwiseAnd (emptySquares c b) bl
 data File = A | B | C | D | E | F | G | H
 
 -- | Clear out piece positions where moving left/right would fall off the board.
-maskFile :: File -> BoardLayer
-maskFile A = 0b0111111101111111011111110111111101111111011111110111111101111111
-maskFile B = 0b1011111110111111101111111011111110111111101111111011111110111111
-maskFile G = 0b1111110111111101111111011111110111111101111111011111110111111101
-maskFile H = 0b1111111011111110111111101111111011111110111111101111111011111110
+clearFile :: File -> BoardLayer
+clearFile A = 0b0111111101111111011111110111111101111111011111110111111101111111
+clearFile B = 0b1011111110111111101111111011111110111111101111111011111110111111
+clearFile G = 0b1111110111111101111111011111110111111101111111011111110111111101
+clearFile H = 0b1111111011111110111111101111111011111110111111101111111011111110
 
 -- | Because (.|.) is arity 2, use folds.
 orFold :: [BoardLayer] -> BoardLayer
@@ -224,8 +224,8 @@ kingMoves color board = valid
   where king  = case color of
           Black -> blackKing board
           White -> whiteKing board
-        clipA = king .&. maskFile A
-        clipH = king .&. maskFile H
+        clipA = king .&. clearFile A
+        clipH = king .&. clearFile H
         moves = shiftLR [(king,8), (clipA,1), (clipH,7), (clipA,9)]
                         [(king,8), (clipH,1), (clipA,7), (clipH,9)]
         valid = movesToEmptySquares (Just color) board moves
@@ -249,11 +249,11 @@ knightMoves color board = valid
   where knight = case color of
           Black -> blackKnights board
           White -> whiteKnights board
-        clipA  = knight .&. maskFile A
-        clipB  = knight .&. maskFile B
+        clipA  = knight .&. clearFile A
+        clipB  = knight .&. clearFile B
         clipAB = clipA .&. clipB
-        clipG  = knight .&. maskFile G
-        clipH  = knight .&. maskFile H
+        clipG  = knight .&. clearFile G
+        clipH  = knight .&. clearFile H
         clipGH = clipG .&. clipH
         moves  = shiftLR [(clipGH,6), (clipAB,10), (clipG,15), (clipA,17)]
                          [(clipAB,6), (clipGH,10), (clipA,15), (clipG,17)]
