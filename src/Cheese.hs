@@ -156,16 +156,24 @@ maskRank 6 = 0b0000000000000000111111110000000000000000000000000000000000000000
 -- | Pawns moves and attacks.
 pawnMoves :: Color -> Board -> BoardLayer
 pawnMoves c b = moves
-  where (pawns,shift,toMask) = case c of
-          Black -> (blackPawns,shiftR,6)
-          White -> (whitePawns,shiftL,3)
-        baseMoves = shift (pawns b) 8
-        moves     = baseMoves .|. twoSpaces
-          where twoSpaces = two .&. empty
-                two       = shift masked 8
-                masked    = baseMoves .&. (maskRank toMask)
-                empty     = emptySquares (Just c) b
-        -- attacks   =
+  where (pawns, shift, toMask, c') = case c of
+          Black -> (blackPawns b, shiftR, 6, White)
+          White -> (whitePawns b, shiftL, 3, Black)
+        baseMoves = shift pawns 8
+        moves     = baseMoves .|. twoSpaces .|. attacks
+          where
+            twoSpaces = two .&. empty
+            two       = shift masked 8
+            masked    = baseMoves .&. (maskRank toMask)
+            empty     = emptySquares (Just c) b
+        attacks  = enemyPieces .&. attacksLR
+          where
+            enemyPieces = orFold $ lsLayers (Just c') b
+            attacksLR   = attacksL .|. attacksR
+            attacksL    = shift maskA 9
+            attacksR    = shift maskH 7
+            maskA       = pawns .&. maskFile A
+            maskH       = pawns .&. maskFile H
         -- enPassant =
 
 blackPawnMoves :: Board -> BoardLayer
@@ -186,11 +194,11 @@ movesToEmptySquares c b bl = bitwiseAnd (emptySquares c b) bl
 data File = A | B | C | D | E | F | G | H
 
 -- | Clear out piece positions where moving left/right would fall off the board.
-clearFile :: File -> BoardLayer
-clearFile A = 0b0111111101111111011111110111111101111111011111110111111101111111
-clearFile B = 0b1011111110111111101111111011111110111111101111111011111110111111
-clearFile G = 0b1111110111111101111111011111110111111101111111011111110111111101
-clearFile H = 0b1111111011111110111111101111111011111110111111101111111011111110
+maskFile :: File -> BoardLayer
+maskFile A = 0b0111111101111111011111110111111101111111011111110111111101111111
+maskFile B = 0b1011111110111111101111111011111110111111101111111011111110111111
+maskFile G = 0b1111110111111101111111011111110111111101111111011111110111111101
+maskFile H = 0b1111111011111110111111101111111011111110111111101111111011111110
 
 -- | Because (.|.) is arity 2, use folds.
 orFold :: [BoardLayer] -> BoardLayer
@@ -216,8 +224,8 @@ kingMoves color board = valid
   where king  = case color of
           Black -> blackKing board
           White -> whiteKing board
-        clipA = king .&. clearFile A
-        clipH = king .&. clearFile H
+        clipA = king .&. maskFile A
+        clipH = king .&. maskFile H
         moves = shiftLR [(king,8), (clipA,1), (clipH,7), (clipA,9)]
                         [(king,8), (clipH,1), (clipA,7), (clipH,9)]
         valid = movesToEmptySquares (Just color) board moves
@@ -241,11 +249,11 @@ knightMoves color board = valid
   where knight = case color of
           Black -> blackKnights board
           White -> whiteKnights board
-        clipA  = knight .&. clearFile A
-        clipB  = knight .&. clearFile B
+        clipA  = knight .&. maskFile A
+        clipB  = knight .&. maskFile B
         clipAB = clipA .&. clipB
-        clipG  = knight .&. clearFile G
-        clipH  = knight .&. clearFile H
+        clipG  = knight .&. maskFile G
+        clipH  = knight .&. maskFile H
         clipGH = clipG .&. clipH
         moves  = shiftLR [(clipGH,6), (clipAB,10), (clipG,15), (clipA,17)]
                          [(clipAB,6), (clipGH,10), (clipA,15), (clipG,17)]
