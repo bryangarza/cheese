@@ -148,14 +148,31 @@ emptySquares c b = complement (orFold (lsLayers c b))
 printEmptySquares :: Maybe Color -> Board -> IO ()
 printEmptySquares c b = putLayer (emptySquares c b)
 
--- TODO: Promotion, en passant, two-square initial move rule...
--- | All white pawns moved up one square.
-whitePawnMoves :: Board -> BoardLayer
-whitePawnMoves = flip shiftL 8 . whitePawns
+maskRank :: Int -> BoardLayer
+maskRank 3 = 0b0000000000000000000000000000000000000000111111110000000000000000
+maskRank 6 = 0b0000000000000000111111110000000000000000000000000000000000000000
 
--- | All black pawns moved up one square.
+-- TODO: Promotion, en passant
+-- | Pawns moves and attacks.
+pawnMoves :: Color -> Board -> BoardLayer
+pawnMoves c b = moves
+  where (pawns,shift,toMask) = case c of
+          Black -> (blackPawns,shiftR,6)
+          White -> (whitePawns,shiftL,3)
+        baseMoves = shift (pawns b) 8
+        moves     = baseMoves .|. twoSpaces
+          where twoSpaces = two .&. empty
+                two       = shift masked 8
+                masked    = baseMoves .&. (maskRank toMask)
+                empty     = emptySquares (Just c) b
+        -- attacks   =
+        -- enPassant =
+
 blackPawnMoves :: Board -> BoardLayer
-blackPawnMoves = flip shiftR 8 . blackPawns
+blackPawnMoves = pawnMoves Black
+
+whitePawnMoves :: Board -> BoardLayer
+whitePawnMoves = pawnMoves White
 
 -- | Rename infix `and` to word (exists in Data.Bits but is not exported).
 bitwiseAnd :: Bits a => a -> a -> a
