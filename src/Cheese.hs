@@ -64,26 +64,35 @@ showHex board = res
 emptyBoard :: Board
 emptyBoard = Board 0 0 0 0 0 0 0 0 0 0 0 0
 
--- | Starting position.
+{-| Starting position, little endian rank-file mapping:
+      56 57 58 59 60 61 62 63
+      48 49 50 51 52 53 54 55
+      40 41 42 43 44 45 46 47
+      32 33 34 35 36 37 38 39
+      24 25 26 27 28 29 30 31
+      16 17 18 19 20 21 22 23
+      08 09 10 11 12 13 14 15
+      00 01 02 03 04 05 06 07
+|-}
 initialBoard :: Board
 initialBoard = Board
     { whitePawns   = 0b0000000000000000000000000000000000000000000000001111111100000000
     , whiteKnights = 0b0000000000000000000000000000000000000000000000000000000000100100
     , whiteBishops = 0b0000000000000000000000000000000000000000000000000000000001000010
     , whiteRooks   = 0b0000000000000000000000000000000000000000000000000000000010000001
-    , whiteQueens  = 0b0000000000000000000000000000000000000000000000000000000000010000
-    , whiteKing    = 0b0000000000000000000000000000000000000000000000000000000000001000
+    , whiteQueens  = 0b0000000000000000000000000000000000000000000000000000000000001000
+    , whiteKing    = 0b0000000000000000000000000000000000000000000000000000000000010000
     , blackPawns   = 0b0000000011111111000000000000000000000000000000000000000000000000
     , blackKnights = 0b0010010000000000000000000000000000000000000000000000000000000000
     , blackBishops = 0b0100001000000000000000000000000000000000000000000000000000000000
     , blackRooks   = 0b1000000100000000000000000000000000000000000000000000000000000000
-    , blackQueens  = 0b0001000000000000000000000000000000000000000000000000000000000000
-    , blackKing    = 0b0000100000000000000000000000000000000000000000000000000000000000
+    , blackQueens  = 0b0000100000000000000000000000000000000000000000000000000000000000
+    , blackKing    = 0b0001000000000000000000000000000000000000000000000000000000000000
     }
 
 -- | Symbol for empty square when printing out board.
 emptySym :: Char
-emptySym = '.'
+emptySym = '⬜'
 
 -- | Convert a binary piece layer into True and False layer.
 pieceBools :: BoardLayer -> [Bool]
@@ -100,38 +109,39 @@ layerStr xs c = xs'
 overlay :: String -> String -> String
 overlay xs ys = merged
   where merged = zipWith (curry pieceOrEmpty) xs ys
-        pieceOrEmpty ('.', y) = y
-        pieceOrEmpty (x, '.') = x
+        pieceOrEmpty ('⬜', y) = y
+        pieceOrEmpty (x, '⬜') = x
         pieceOrEmpty (_, _)   = emptySym
 
 -- | Add column of spaces between each file.
 formatForPrint :: String -> String
 formatForPrint x  = intercalate "\n" spacedOut
   where spacedOut = map (intersperse ' ') split
-        split     = chunksOf 8 x
+        split     = map reverse (chunksOf 8 x)
 
 -- | Print a layer to stdout.
 putLayer :: BoardLayer -> IO ()
-putLayer xs = putStrLn $ formatForPrint (layerStr xs 'x')
+putLayer xs = putStrLn $ formatForPrint (layerStr xs '⬛')
 
 eachLetter :: String
-eachLetter = "pnbrqkPNBRQK"
+-- eachLetter = "PNBRQKpnbrqk"
+eachLetter = "♙♘♗♖♕♔♟♞♝♜♛♚"
 
 {-|
   Print all the layers overlayed. Looks like:
-    R B N Q K N B R
-    P P P P P P P P
-    . . . . . . . .
-    . . . . . . . .
-    . . . . . . . .
-    . . . . . . . .
-    p p p p p p p p
     r b n q k n b r
+    p p p p p p p p
+    . . . . . . . .
+    . . . . . . . .
+    . . . . . . . .
+    . . . . . . . .
+    P P P P P P P P
+    R B N Q K N B R
 -}
 instance Show Board where
   show board = formatForPrint mergedAll
     where mergedAll  = foldr overlay initial xs
-          initial    = layerStr 0 '.'
+          initial    = layerStr 0 '⬜'
           xs         = zipWith layerStr eachLayer eachLetter
           eachLayer  = lsLayers Nothing board
 
@@ -159,19 +169,19 @@ pawnMoves c b = moves
   where (pawns, shift, toMask, c') = case c of
           Black -> (blackPawns b, shiftR, 6, White)
           White -> (whitePawns b, shiftL, 3, Black)
-        baseMoves = shift pawns 8
+        empty     = emptySquares Nothing b
+        baseMoves = shift pawns 8 .&. empty
         moves     = baseMoves .|. twoSpaces .|. attacks
+        twoSpaces = two .&. empty
           where
-            twoSpaces = two .&. empty
             two       = shift masked 8
             masked    = baseMoves .&. (maskRank toMask)
-            empty     = emptySquares (Just c) b
         attacks  = enemyPieces .&. attacksLR
           where
             enemyPieces = orFold $ lsLayers (Just c') b
             attacksLR   = attacksL .|. attacksR
-            attacksL    = shift maskA 9
-            attacksR    = shift maskH 7
+            attacksL    = shift maskA 7
+            attacksR    = shift maskH 9
             maskA       = pawns .&. clearFile A
             maskH       = pawns .&. clearFile H
         -- enPassant =
@@ -195,10 +205,10 @@ data File = A | B | C | D | E | F | G | H
 
 -- | Clear out piece positions where moving left/right would fall off the board.
 clearFile :: File -> BoardLayer
-clearFile A = 0b0111111101111111011111110111111101111111011111110111111101111111
-clearFile B = 0b1011111110111111101111111011111110111111101111111011111110111111
-clearFile G = 0b1111110111111101111111011111110111111101111111011111110111111101
-clearFile H = 0b1111111011111110111111101111111011111110111111101111111011111110
+clearFile H = 0b0111111101111111011111110111111101111111011111110111111101111111
+clearFile G = 0b1011111110111111101111111011111110111111101111111011111110111111
+clearFile B = 0b1111110111111101111111011111110111111101111111011111110111111101
+clearFile A = 0b1111111011111110111111101111111011111110111111101111111011111110
 
 -- | Because (.|.) is arity 2, use folds.
 orFold :: [BoardLayer] -> BoardLayer
@@ -217,8 +227,8 @@ shiftLR l r = orFold (mapL ++ mapR)
         mapR    = map shiftR' r
 
 -- | Possible moves and attacks for a king piece.
--- | [north, west, northeast, northwest]
--- | [south, east, southwest, southeast]
+-- | [north, east, northwest, northeast]
+-- | [south, west, southeast, southwest]
 kingMoves :: Color -> Board -> BoardLayer
 kingMoves color board = valid
   where king  = case color of
@@ -226,8 +236,8 @@ kingMoves color board = valid
           White -> whiteKing board
         clipA = king .&. clearFile A
         clipH = king .&. clearFile H
-        moves = shiftLR [(king,8), (clipA,1), (clipH,7), (clipA,9)]
-                        [(king,8), (clipH,1), (clipA,7), (clipH,9)]
+        moves = shiftLR [(king,8), (clipH,1), (clipA,7), (clipH,9)]
+                        [(king,8), (clipA,1), (clipH,7), (clipA,9)]
         valid = movesToEmptySquares (Just color) board moves
 
 {-|
@@ -241,8 +251,8 @@ kingMoves color board = valid
     2 ~ ~ 7 ~ 6 ~ ~ ~
     1 ~ ~ ~ ~ ~ ~ ~ ~
       A B C D E F G H
-  Left shifts find postions 4, 1, 3, and 2.
-  Right shifts find postions 8, 5, 7, and 6.
+  Left shifts find postions 1, 4, 2, and 3.
+  Right shifts find postions 5, 8, 6, and 7.
 |-}
 knightMoves :: Color -> Board -> BoardLayer
 knightMoves color board = valid
@@ -255,6 +265,6 @@ knightMoves color board = valid
         clipG  = knight .&. clearFile G
         clipH  = knight .&. clearFile H
         clipGH = clipG .&. clipH
-        moves  = shiftLR [(clipGH,6), (clipAB,10), (clipG,15), (clipA,17)]
-                         [(clipAB,6), (clipGH,10), (clipA,15), (clipG,17)]
+        moves  = shiftLR [(clipAB,6), (clipGH,10), (clipA,15), (clipH,17)]
+                         [(clipGH,6), (clipAB,10), (clipH,15), (clipA,17)]
         valid  = movesToEmptySquares (Just color) board moves
