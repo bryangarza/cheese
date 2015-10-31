@@ -14,17 +14,4 @@ cabal.sandbox.config
 *.aux
 *.hp
 .stack-work/
-/frontend/target
-/frontend/classes
-/frontend/checkouts
-/frontend/pom.xml
-/frontend/pom.xml.asc
-/frontend/*.jar
-/frontend/*.class
-/frontend/.lein-*
-/frontend/.nrepl-port
-/frontend/resources/public/js
-/frontend/out
-/frontend/.repl
-/frontend/*.log
 *.liquid
