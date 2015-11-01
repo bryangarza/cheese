@@ -32,7 +32,7 @@ executable cheese-exe
 test-suite cheese-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             Cheese.hs
+  main-is:             Spec.hs
   build-depends:       base
                      , cheese
                      , hspec
