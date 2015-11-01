@@ -16,7 +16,7 @@ main = hspec $ do
     it "returns moves for starting position" $
       whitePawnMoves initialBoard `shouldBe` 0b0000000000000000000000000000000011111111111111110000000000000000
 
-    it "returns moves for staggered position" $ do
+    it "returns moves for staggered position" $
       -- ⬜ ⬜ ⬜ ⬜ ⬜ ⬜ ⬜ ⬜    ⬜ ⬜ ⬜ ⬜ ⬜ ⬛ ⬜ ⬜
       -- ⬜ ⬜ ⬜ ⬜ ⬜ ♙ ⬜ ⬜    ⬜ ⬛ ⬜ ⬜ ⬜ ⬜ ⬜ ⬜
       -- ⬜ ♙ ⬜ ⬜ ⬜ ⬜ ⬜ ⬜    ⬜ ⬜ ⬛ ⬜ ⬜ ⬜ ⬜ ⬜
@@ -25,6 +25,6 @@ main = hspec $ do
       -- ♙ ⬜ ⬜ ⬜ ⬜ ♙ ⬜ ♙    ⬜ ⬜ ⬜ ⬛ ⬜ ⬜ ⬜ ⬜
       -- ⬜ ⬜ ⬜ ♙ ⬜ ⬜ ⬜ ⬜    ⬜ ⬜ ⬜ ⬜ ⬜ ⬜ ⬜ ⬜
       -- ⬜ ⬜ ⬜ ⬜ ⬜ ⬜ ⬜ ⬜    ⬜ ⬜ ⬜ ⬜ ⬜ ⬜ ⬜ ⬜
-      let board = emptyBoard { whitePawns = 0b0000000000100000000000100000010000000000101000010000100000000000 }
-      let layer = 0b0010000000000010000001000000000010101001000010000000000000000000
       whitePawnMoves board `shouldBe` layer
+        where board = emptyBoard { whitePawns = 0b0000000000100000000000100000010000000000101000010000100000000000 }
+              layer = 0b0010000000000010000001000000000010101001000010000000000000000000
