@@ -272,6 +272,9 @@ knightMoves color board = valid
 rankAttacks :: Int -> BoardLayer
 rankAttacks n = (shiftL 0xff (n .&. 56)) `xor` (shiftL 0x1 n)
 
+fileAttacks :: Int -> BoardLayer
+fileAttacks n = (shiftL 0x1 n) `xor` (shiftL 0x0101010101010101 (n .&. 7))
+
 isolate = emptyBoard
     {
       -- whiteKnights = 0b000001000000000000000000000000000000000000000000000000000000000
