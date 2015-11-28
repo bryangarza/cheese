@@ -269,11 +269,20 @@ knightMoves color board = valid
                          [(clipGH,6), (clipAB,10), (clipH,15), (clipA,17)]
         valid  = movesToEmptySquares (Just color) board moves
 
-rankAttacks :: Int -> BoardLayer
-rankAttacks n = (shiftL 0xff (n .&. 56)) `xor` (shiftL 0x1 n)
+pieceAt :: Int -> BoardLayer
+pieceAt n = shiftL 0x1 n
 
-fileAttacks :: Int -> BoardLayer
-fileAttacks n = (shiftL 0x1 n) `xor` (shiftL 0x0101010101010101 (n .&. 7))
+rankMask :: Int -> BoardLayer
+rankMask n = shiftL 0xff (n .&. 56)
+
+fileMask :: Int -> BoardLayer
+fileMask n = shiftL 0x0101010101010101 (n .&. 7)
+
+rankMaskEx :: Int -> BoardLayer
+rankMaskEx n = pieceAt n `xor` (rankMask n)
+
+fileMaskEx :: Int -> BoardLayer
+fileMaskEx n = pieceAt n `xor` (fileMask n)
 
 isolate = emptyBoard
     {
