@@ -4,8 +4,21 @@
 module Cheese where
 
 -- Base imports.
-import Data.Bits   (Bits, complement, shiftL, shiftR, testBit, xor, (.&.), (.|.))
+import Data.Bits   (Bits
+                   ,clearBit
+                   ,complement
+                   ,countLeadingZeros
+                   ,countTrailingZeros
+                   ,popCount
+                   ,setBit
+                   ,shiftL
+                   ,shiftR
+                   ,testBit
+                   ,xor
+                   ,(.&.)
+                   ,(.|.))
 import Data.Char   (intToDigit)
+import Data.Foldable (foldMap)
 import Data.List   (intercalate, intersperse)
 import Data.Word   (Word64)
 import Text.Printf (printf)
@@ -15,6 +28,13 @@ import Data.List.Split (chunksOf)
 
 -- | 8x8 square to represent one piece type's layer.
 type BoardLayer = Word64
+
+data PieceType = Pawn
+               | Knight
+               | Bishop
+               | Rook
+               | Queen
+               | King
 
 -- | Board representation (bitboard).
 data Board = Board
@@ -32,7 +52,41 @@ data Board = Board
     , blackKing    :: BoardLayer
     } deriving (Eq)
 
+setBoardLayer :: Color -> PieceType -> Board -> BoardLayer -> Int -> (Board, Int)
+setBoardLayer White Pawn   b x n = (b { whitePawns = x }, n)
+setBoardLayer White Knight b x n = (b { whiteKnights = x }, n)
+setBoardLayer White Bishop b x n = (b { whiteBishops = x }, n)
+setBoardLayer White Rook   b x n = (b { whiteRooks = x }, n)
+setBoardLayer White Queen  b x n = (b { whiteQueens = x }, n)
+setBoardLayer White King   b x n = (b { whiteKing = x }, n)
+setBoardLayer Black Pawn   b x n = (b { blackPawns = x }, n)
+setBoardLayer Black Knight b x n = (b { blackKnights = x }, n)
+setBoardLayer Black Bishop b x n = (b { blackBishops = x }, n)
+setBoardLayer Black Rook   b x n = (b { blackRooks = x }, n)
+setBoardLayer Black Queen  b x n = (b { blackQueens = x }, n)
+setBoardLayer Black King   b x n = (b { blackKing = x }, n)
+
+getConstructor :: Color -> PieceType -> (Board -> BoardLayer)
+getConstructor White Pawn   = whitePawns
+getConstructor White Knight = whiteKnights
+getConstructor White Bishop = whiteBishops
+getConstructor White Rook   = whiteRooks
+getConstructor White Queen  = whiteQueens
+getConstructor White King   = whiteKing
+getConstructor Black Pawn   = blackPawns
+getConstructor Black Knight = blackKnights
+getConstructor Black Bishop = blackBishops
+getConstructor Black Rook   = blackRooks
+getConstructor Black Queen  = blackQueens
+getConstructor Black King   = blackKing
+
 data Color = Black | White
+           deriving (Eq)
+
+data BoardState = BoardState
+    { board :: Board
+    , turn  :: Color
+    } deriving (Eq)
 
 -- | Board layers as a list instead of as data fields.
 lsLayers :: Maybe Color -> Board -> [BoardLayer]
@@ -115,7 +169,7 @@ overlay xs ys = merged
 
 -- | Add column of spaces between each file.
 formatForPrint :: String -> String
-formatForPrint x  = intercalate "\n" spacedOut
+formatForPrint x  = (intercalate "\n" spacedOut) ++ "\n\n"
   where spacedOut = map (intersperse ' ') split
         split     = map reverse (chunksOf 8 x)
 
@@ -254,8 +308,8 @@ kingMoves color board = valid
   Left shifts find postions 1, 4, 2, and 3.
   Right shifts find postions 5, 8, 6, and 7.
 |-}
-knightMoves :: Color -> Board -> BoardLayer
-knightMoves color board = valid
+knightMoves :: Color -> Int -> Board -> (BoardLayer, Int)
+knightMoves color src board = (valid, src)
   where knight = case color of
           Black -> blackKnights board
           White -> whiteKnights board
@@ -269,20 +323,62 @@ knightMoves color board = valid
                          [(clipGH,6), (clipAB,10), (clipH,15), (clipA,17)]
         valid  = movesToEmptySquares (Just color) board moves
 
+-- https://chessprogramming.wikispaces.com/On+an+empty+Board#Line%20Attacks
 pieceAt :: Int -> BoardLayer
-pieceAt n = shiftL 0x1 n
+pieceAt sq = shiftL 0x1 sq
 
 rankMask :: Int -> BoardLayer
-rankMask n = shiftL 0xff (n .&. 56)
+rankMask sq = shiftL 0xff (sq .&. 56)
 
 fileMask :: Int -> BoardLayer
-fileMask n = shiftL 0x0101010101010101 (n .&. 7)
+fileMask sq = shiftL 0x0101010101010101 (sq .&. 7)
+
+diagonalMask :: Int -> BoardLayer
+diagonalMask sq = shiftL (shiftR maindia sout) nort
+  where maindia = (0x8040201008040201 :: Word64)
+        diag = 8 * (sq .&. 7) - (sq .&. 56)
+        nort = -diag .&. (shiftR diag 31)
+        sout =  diag .&. (shiftR (-diag) 31)
+
+antiDiagMask :: Int -> BoardLayer
+antiDiagMask sq = shiftL (shiftR maindia sout) nort
+  where maindia = (0x0102040810204080 :: Word64)
+        diag = 56 - 8 * (sq .&. 7) - (sq .&. 56)
+        nort = -diag .&. (shiftR diag 31)
+        sout = diag .&. (shiftR (-diag) 31)
+
+maskEx :: (Int -> BoardLayer) -> (Int -> BoardLayer)
+maskEx f = \sq -> pieceAt sq `xor` (f sq)
 
 rankMaskEx :: Int -> BoardLayer
-rankMaskEx n = pieceAt n `xor` (rankMask n)
+rankMaskEx = maskEx rankMask
 
 fileMaskEx :: Int -> BoardLayer
-fileMaskEx n = pieceAt n `xor` (fileMask n)
+fileMaskEx = maskEx fileMask
+
+diagonalMaskEx :: Int -> BoardLayer
+diagonalMaskEx = maskEx diagonalMask
+
+antiDiagMaskEx :: Int -> BoardLayer
+antiDiagMaskEx = maskEx antiDiagMask
+
+rookAttacks sq = rankMask sq .|. fileMask sq
+bishopAttacks sq = diagonalMask sq .|. antiDiagMask sq
+queenAttacks sq = rookAttacks sq .|. bishopAttacks sq
+
+-- occupancy & filemask[d] = potential blockers
+-- potential blockers - 2 * squarebit[d2] = difference
+-- difference ^ occupancy = changed
+-- changed & filemask = north attacks[d2]
+
+xxx sq b = attacks
+  where
+    occupancy = orFold (lsLayers Nothing b)
+    fmask = fileMask sq
+    potBlockers = occupancy .&. fmask
+    difference = potBlockers - (2 * (pieceAt sq))
+    changed = difference `xor` occupancy
+    attacks = changed .&. fmask
 
 isolate = emptyBoard
     {
@@ -308,3 +404,128 @@ isolate''' = emptyBoard
 -- . . p . . . . . x x . x . x x .
 -- p p . p . p p . . . . . . . . .
 -- . . . . . . . . . . . . . . . .
+
+{-| Starting position, little endian rank-file mapping:
+      56 57 58 59 60 61 62 63
+      48 49 50 51 52 53 54 55
+      40 41 42 43 44 45 46 47
+      32 33 34 35 36 37 38 39
+      24 25 26 27 28 29 30 31
+      16 17 18 19 20 21 22 23
+      08 09 10 11 12 13 14 15
+      00 01 02 03 04 05 06 07
+|-}
+-- occupancy = 0b0010100001100101100010100010000000001010010000001010101101011000
+occupancy :: Board
+occupancy = emptyBoard {
+  blackPawns = 0b0000000010010010010001000100010000000000000000000000000000000000,
+  whitePawns = 0b0000000000000000000000000000000000000001010010110000100010100000
+  }
+
+rookMoves :: Color -> Int -> Board -> BoardLayer
+rookMoves c sq b  = (rank .|. file)  .&. sameColor
+  where
+    sameColor = complement (orFold $ lsLayers (Just c) b)
+    occupancy = orFold (lsLayers Nothing b)
+    file = (2 * ls1bUpper - ms1bLower) .&. fileMaskEx sq
+      where
+        occupancyFile  = occupancy .&. fileMaskEx sq
+        sqSucc         = sq + 1
+        occupancyUpper = occupancyFile .&. (complement $ (shiftL 1 sqSucc) - 1)
+        occupancyLower = occupancyFile .&. ((shiftL 1 sqSucc) - 1)
+        ls1bUpper      = pieceAt (countTrailingZeros occupancyUpper)
+        ms1bLower      = pieceAt $ (63 - (countLeadingZeros lower))
+        lower          = occupancyLower .|. 0b1
+    rank = (2 * ls1bUpper - ms1bLower) .&. rankMaskEx sq
+      where
+        occupancyRank  = occupancy .&. rankMaskEx sq
+        sqSucc         = sq + 1
+        occupancyUpper = occupancyRank .&. (complement $ (shiftL 1 sqSucc) - 1)
+        occupancyLower = occupancyRank .&. ((shiftL 1 sqSucc) - 1)
+        ls1bUpper      = pieceAt (countTrailingZeros occupancyUpper)
+        ms1bLower      = pieceAt $ (63 - (countLeadingZeros lower))
+        lower          = occupancyLower .|. 0b1
+
+bishopMoves :: Color -> Int -> Board -> BoardLayer
+bishopMoves c sq b  = (rank .|. file)  .&. sameColor
+  where
+    sameColor = complement (orFold $ lsLayers (Just c) b)
+    occupancy = orFold (lsLayers Nothing b)
+    file = (2 * ls1bUpper - ms1bLower) .&. diagonalMaskEx sq
+      where
+        occupancyFile  = occupancy .&. diagonalMaskEx sq
+        sqSucc         = sq + 1
+        occupancyUpper = occupancyFile .&. (complement $ (shiftL 1 sqSucc) - 1)
+        occupancyLower = occupancyFile .&. ((shiftL 1 sqSucc) - 1)
+        ls1bUpper      = pieceAt (countTrailingZeros occupancyUpper)
+        ms1bLower      = pieceAt $ (63 - (countLeadingZeros lower))
+        lower          = occupancyLower .|. 0b1
+    rank = (2 * ls1bUpper - ms1bLower) .&. antiDiagMaskEx sq
+      where
+        occupancyRank  = occupancy .&. antiDiagMaskEx sq
+        sqSucc         = sq + 1
+        occupancyUpper = occupancyRank .&. (complement $ (shiftL 1 sqSucc) - 1)
+        occupancyLower = occupancyRank .&. ((shiftL 1 sqSucc) - 1)
+        ls1bUpper      = pieceAt (countTrailingZeros occupancyUpper)
+        ms1bLower      = pieceAt $ (63 - (countLeadingZeros lower))
+        lower          = occupancyLower .|. 0b1
+
+queenMoves :: Color -> Int -> Board -> BoardLayer
+queenMoves c sq b = (rookMoves c sq b) .|. (bishopMoves c sq b)
+
+-- ex: movePiece White Queen 3 12 whiteQueens firstMove
+movePiece :: Color
+          -> PieceType
+          -> Int
+          -> Int
+          -> Board
+          -> Board
+movePiece color pieceType sq sq' b = res
+  where
+    (res,_) = setBoardLayer color pieceType b newLayer sq
+    remove = clearBit ((getConstructor color pieceType) b) sq
+    newLayer = setBit remove sq'
+
+eachBit :: BoardLayer -> [Int]
+eachBit layer = go layer [] (popCount layer)
+  where go l res 0 = res
+        go l res n = go (clearBit l sq) (sq : res) (pred n)
+          where sq = countTrailingZeros l
+
+-- getMovesFunc Pawn = pawnMoves
+-- getMovesFunc Knight = knightMoves
+-- getMovesFunc Bishop = bishopMoves
+-- getMovesFunc Rook = rookMoves
+-- getMovesFunc Queen = queenMoves
+-- getMovesFunc King = kingMoves
+
+f :: Color -> PieceType -> Board -> BoardLayer -> Int -> [Board]
+f c p b moves src = map (\dest -> movePiece c p src dest b) (eachBit moves)
+
+-- knightMovesEach :: Color -> Board -> [BoardLayer]
+knightMovesEach c b = -- map (\sq -> setBit 0b0 sq) (eachBit ((getConstructor c Knight) b))
+  map (f' . kM . separatePieces) (eachBit ((getConstructor c Knight) b))
+  where separatePieces sq = setBoardLayer c Knight b (setBit 0b0 sq) sq
+        kM (oneKnight, src) = knightMoves c src oneKnight
+        f' (isolatedBoard, src) = f c Knight b isolatedBoard src
+
+-- allMoves :: BoardState -> [BoardState]
+-- allMoves bs =
+--   color = turn bs
+
+-- testRound :: Color -> Board -> BoardLayer
+-- testRound c b = orFold [(pawnMoves c b)
+--                        ,(knightMoves c b)
+--                        ,(kingMoves c b)
+--                        ,(rookMoves c 56 b)
+--                        ,(rookMoves c 63 b)
+--                        ,(bishopMoves c 57 b)
+--                        ,(bishopMoves c 62 b)
+--                        ,(queenMoves c 59 b)]
+                -- break here
+                       -- ,(rookMoves c 0 b)
+                       -- ,(rookMoves c 7 b)
+                       -- ,(bishopMoves c 1 b)
+                       -- ,(bishopMoves c 6 b)
+                       -- ,(queenMoves c 3 b)]
+firstMove = initialBoard { whitePawns = 0b0000000000000000000000000000000000000000000100001110111100000000 }
