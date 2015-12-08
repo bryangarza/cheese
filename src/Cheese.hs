@@ -218,8 +218,8 @@ maskRank 6 = 0b0000000000000000111111110000000000000000000000000000000000000000
 
 -- TODO: Promotion, en passant
 -- | Pawns moves and attacks.
-pawnMoves :: Color -> Board -> BoardLayer
-pawnMoves c b = moves
+pawnMoves :: Color -> Int -> Board -> (BoardLayer, Int)
+pawnMoves c sq b = (moves, sq)
   where (pawns, shift, toMask, c') = case c of
           Black -> (blackPawns b, shiftR, 6, White)
           White -> (whitePawns b, shiftL, 3, Black)
@@ -239,12 +239,6 @@ pawnMoves c b = moves
             maskA       = pawns .&. clearFile A
             maskH       = pawns .&. clearFile H
         -- enPassant =
-
-blackPawnMoves :: Board -> BoardLayer
-blackPawnMoves = pawnMoves Black
-
-whitePawnMoves :: Board -> BoardLayer
-whitePawnMoves = pawnMoves White
 
 -- | Rename infix `and` to word (exists in Data.Bits but is not exported).
 bitwiseAnd :: Bits a => a -> a -> a
@@ -283,8 +277,8 @@ shiftLR l r = orFold (mapL ++ mapR)
 -- | Possible moves and attacks for a king piece.
 -- | [north, east, northwest, northeast]
 -- | [south, west, southeast, southwest]
-kingMoves :: Color -> Board -> BoardLayer
-kingMoves color board = valid
+kingMoves :: Color -> Int -> Board -> (BoardLayer, Int)
+kingMoves color sq board = (valid, sq)
   where king  = case color of
           Black -> blackKing board
           White -> whiteKing board
@@ -422,8 +416,8 @@ occupancy = emptyBoard {
   whitePawns = 0b0000000000000000000000000000000000000001010010110000100010100000
   }
 
-rookMoves :: Color -> Int -> Board -> BoardLayer
-rookMoves c sq b  = (rank .|. file)  .&. sameColor
+rookMoves :: Color -> Int -> Board -> (BoardLayer, Int)
+rookMoves c sq b  = ((rank .|. file)  .&. sameColor, sq)
   where
     sameColor = complement (orFold $ lsLayers (Just c) b)
     occupancy = orFold (lsLayers Nothing b)
@@ -446,8 +440,8 @@ rookMoves c sq b  = (rank .|. file)  .&. sameColor
         ms1bLower      = pieceAt $ (63 - (countLeadingZeros lower))
         lower          = occupancyLower .|. 0b1
 
-bishopMoves :: Color -> Int -> Board -> BoardLayer
-bishopMoves c sq b  = (rank .|. file)  .&. sameColor
+bishopMoves :: Color -> Int -> Board -> (BoardLayer, Int)
+bishopMoves c sq b  = ((rank .|. file)  .&. sameColor, sq)
   where
     sameColor = complement (orFold $ lsLayers (Just c) b)
     occupancy = orFold (lsLayers Nothing b)
@@ -470,8 +464,10 @@ bishopMoves c sq b  = (rank .|. file)  .&. sameColor
         ms1bLower      = pieceAt $ (63 - (countLeadingZeros lower))
         lower          = occupancyLower .|. 0b1
 
-queenMoves :: Color -> Int -> Board -> BoardLayer
-queenMoves c sq b = (rookMoves c sq b) .|. (bishopMoves c sq b)
+queenMoves :: Color -> Int -> Board -> (BoardLayer, Int)
+queenMoves c sq b = (rook .|. bishop, sq)
+  where (rook,_)   = (rookMoves c sq b)
+        (bishop,_) = (bishopMoves c sq b)
 
 -- ex: movePiece White Queen 3 12 whiteQueens firstMove
 movePiece :: Color
@@ -492,22 +488,25 @@ eachBit layer = go layer [] (popCount layer)
         go l res n = go (clearBit l sq) (sq : res) (pred n)
           where sq = countTrailingZeros l
 
--- getMovesFunc Pawn = pawnMoves
--- getMovesFunc Knight = knightMoves
--- getMovesFunc Bishop = bishopMoves
--- getMovesFunc Rook = rookMoves
--- getMovesFunc Queen = queenMoves
--- getMovesFunc King = kingMoves
+getMovesFunc
+  :: PieceType -> Color -> Int -> Board -> (BoardLayer, Int)
+getMovesFunc Pawn = pawnMoves
+getMovesFunc Knight = knightMoves
+getMovesFunc Bishop = bishopMoves
+getMovesFunc Rook = rookMoves
+getMovesFunc Queen = queenMoves
+getMovesFunc King = kingMoves
 
-f :: Color -> PieceType -> Board -> BoardLayer -> Int -> [Board]
-f c p b moves src = map (\dest -> movePiece c p src dest b) (eachBit moves)
+eachMove :: Color -> PieceType -> Board -> BoardLayer -> Int -> [Board]
+eachMove c p b moves src = map (\dest -> movePiece c p src dest b) (eachBit moves)
 
--- knightMovesEach :: Color -> Board -> [BoardLayer]
-knightMovesEach c b = -- map (\sq -> setBit 0b0 sq) (eachBit ((getConstructor c Knight) b))
-  map (f' . kM . separatePieces) (eachBit ((getConstructor c Knight) b))
-  where separatePieces sq = setBoardLayer c Knight b (setBit 0b0 sq) sq
-        kM (oneKnight, src) = knightMoves c src oneKnight
-        f' (isolatedBoard, src) = f c Knight b isolatedBoard src
+pieceMovesEach :: Color -> PieceType -> Board -> [Board]
+pieceMovesEach c t b =
+  foldMap (eachMove' . someMove . separatePieces) eachBit'
+  where eachBit'                       = eachBit ((getConstructor c t) b)
+        separatePieces sq              = setBoardLayer c t b (setBit 0b0 sq) sq
+        someMove (onePiece, src)       = (getMovesFunc t) c src onePiece
+        eachMove' (isolatedBoard, src) = eachMove c t b isolatedBoard src
 
 -- allMoves :: BoardState -> [BoardState]
 -- allMoves bs =
@@ -529,3 +528,4 @@ knightMovesEach c b = -- map (\sq -> setBit 0b0 sq) (eachBit ((getConstructor c 
                        -- ,(bishopMoves c 6 b)
                        -- ,(queenMoves c 3 b)]
 firstMove = initialBoard { whitePawns = 0b0000000000000000000000000000000000000000000100001110111100000000 }
+bish = initialBoard { whiteBishops =    0b0000000000000000000000000010000000001000000000000000000000000000 }
