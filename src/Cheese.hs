@@ -36,6 +36,8 @@ data PieceType = Pawn
                | Queen
                | King
 
+pieceTypes = [Pawn, Knight, Bishop, Rook, Queen, King]
+
 -- | Board representation (bitboard).
 data Board = Board
     { whitePawns   :: BoardLayer
@@ -83,9 +85,13 @@ getConstructor Black King   = blackKing
 data Color = Black | White
            deriving (Eq)
 
+instance Show Color where
+  show Black = "Black"
+  show White = "White"
+
 data BoardState = BoardState
-    { board :: Board
-    , turn  :: Color
+    { boards :: [Board]
+    , turn   :: Color
     } deriving (Eq)
 
 -- | Board layers as a list instead of as data fields.
@@ -198,6 +204,9 @@ instance Show Board where
           initial    = layerStr 0 '⬜'
           xs         = zipWith layerStr eachLayer eachLetter
           eachLayer  = lsLayers Nothing board
+
+instance Show BoardState where
+  show (BoardState boards turn) = "Turn: " ++ show turn ++ "\n" ++ show boards
 
 -- | Rename infix `or` to word (exists in Data.Bits but is not exported).
 bitwiseOr :: Bits a => a -> a -> a
@@ -508,9 +517,17 @@ pieceMovesEach c t b =
         someMove (onePiece, src)       = (getMovesFunc t) c src onePiece
         eachMove' (isolatedBoard, src) = eachMove c t b isolatedBoard src
 
--- allMoves :: BoardState -> [BoardState]
--- allMoves bs =
---   color = turn bs
+allMoves :: BoardState -> BoardState
+allMoves (BoardState boards' turn') =
+  BoardState
+  { boards = boards''
+  , turn   = turn''
+  }
+  where
+    boards'' = foldMap (foldMap (pieceMovesEach turn') pieceTypes) boards'
+    turn'' = case turn' of
+      White -> Black
+      Black -> White
 
 -- testRound :: Color -> Board -> BoardLayer
 -- testRound c b = orFold [(pawnMoves c b)
