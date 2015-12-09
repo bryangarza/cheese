@@ -19,7 +19,7 @@ import Data.Bits   (Bits
                    ,(.|.))
 import Data.Char   (intToDigit)
 import Data.Foldable (foldMap)
-import Data.List   (intercalate, intersperse)
+import Data.List   (find, intercalate, intersperse)
 import Data.Word   (Word64)
 import Text.Printf (printf)
 
@@ -133,14 +133,18 @@ emptyBoard = Board 0 0 0 0 0 0 0 0 0 0 0 0
 initialBoard :: Board
 initialBoard = Board
     { whitePawns   = 0b0000000000000000000000000000000000000000000000001111111100000000
-    , whiteKnights = 0b0000000000000000000000000000000000000000000000000000000000100100
-    , whiteBishops = 0b0000000000000000000000000000000000000000000000000000000001000010
+    -- , whiteKnights = 0b0000000000000000000000000000000000000000000000000000000000100100
+    -- , whiteBishops = 0b0000000000000000000000000000000000000000000000000000000001000010
+    , whiteKnights = 0b0000000000000000000000000000000000000000000000000000000001000010
+    , whiteBishops = 0b0000000000000000000000000000000000000000000000000000000000100100
     , whiteRooks   = 0b0000000000000000000000000000000000000000000000000000000010000001
     , whiteQueens  = 0b0000000000000000000000000000000000000000000000000000000000001000
     , whiteKing    = 0b0000000000000000000000000000000000000000000000000000000000010000
     , blackPawns   = 0b0000000011111111000000000000000000000000000000000000000000000000
-    , blackKnights = 0b0010010000000000000000000000000000000000000000000000000000000000
-    , blackBishops = 0b0100001000000000000000000000000000000000000000000000000000000000
+    -- , blackKnights = 0b0010010000000000000000000000000000000000000000000000000000000000
+    -- , blackBishops = 0b0100001000000000000000000000000000000000000000000000000000000000
+    , blackKnights = 0b0100001000000000000000000000000000000000000000000000000000000000
+    , blackBishops = 0b0010010000000000000000000000000000000000000000000000000000000000
     , blackRooks   = 0b1000000100000000000000000000000000000000000000000000000000000000
     , blackQueens  = 0b0000100000000000000000000000000000000000000000000000000000000000
     , blackKing    = 0b0001000000000000000000000000000000000000000000000000000000000000
@@ -461,6 +465,10 @@ queenMoves c sq b = (rook .|. bishop, sq)
   where (rook,_)   = (rookMoves c sq b)
         (bishop,_) = (bishopMoves c sq b)
 
+applyToEachLayer :: (BoardLayer -> BoardLayer) -> Board -> Board
+applyToEachLayer f (Board a b c d e f' g h i j k l) =
+  (Board (f a) (f b) (f c) (f d) (f e) (f f') (f g) (f h) (f i) (f j) (f k) (f l))
+
 movePiece :: Color
           -> PieceType
           -> Int
@@ -469,8 +477,10 @@ movePiece :: Color
           -> Board
 movePiece color pieceType sq sq' b = res
   where
-    (res,_) = setBoardLayer color pieceType b newLayer sq
-    remove = clearBit ((getConstructor color pieceType) b) sq
+    (res,_) = setBoardLayer color pieceType removeBit newLayer sq
+    -- remove = clearBit ((getConstructor color pieceType) b) sq
+    removeBit = applyToEachLayer (flip clearBit sq) b
+    remove = getConstructor color pieceType removeBit
     newLayer = setBit remove sq'
 
 eachBit :: BoardLayer -> [Int]
@@ -525,9 +535,9 @@ outerOuterCenter = 0b00000000011111100100001001000010010000100100001001111110000
 centrality :: Color -> Board -> Int
 centrality c b = centralityMeasure together
   where together = orFold (lsLayers (Just c) b)
-        centralityMeasure x = sum [50 * popCount (center .&. x)
-                                  ,30 * popCount (outerCenter .&. x)
-                                  ,22 * popCount (outerOuterCenter .&. x)]
+        centralityMeasure x = sum [5 * popCount (center .&. x)
+                                  ,3 * popCount (outerCenter .&. x)
+                                  ,2 * popCount (outerOuterCenter .&. x)]
 
 kingWt :: Int
 kingWt = 200
@@ -559,10 +569,12 @@ score b = kingWt   * (wK-bK) +
           map popCount $ lsLayers Nothing b
 
 data GameTree = Node Color Board [GameTree]
+              | ScoreNode Int Color Board [GameTree]
               deriving (Eq)
 
 instance Show GameTree where
   show (Node c b ts) = "Next move is by: " ++ (show c) ++ "\n" ++ show b ++ show ts
+  show (ScoreNode n c b ts) = "Score: " ++ (show n) ++ "\n" ++ show (Node c b ts)
 
 reptree
   :: (Color -> Board -> [Board])
@@ -575,6 +587,34 @@ gametree c b = reptree allMoves c b
 prune :: Int -> GameTree -> GameTree
 prune 0 (Node c b ts) = Node c b []
 prune n (Node c b ts) = Node c b (map (prune (pred n)) ts)
+
+minimax :: GameTree -> Int
+minimax (ScoreNode n c b []) = n
+minimax (ScoreNode _ _ _ ts) = - (minimum (map minimax ts))
+
+mapgtree :: (Board -> Int) -> GameTree -> GameTree
+mapgtree f (Node c b []) = ScoreNode (f b) c b []
+mapgtree f (Node c b ts) = ScoreNode (f b) c b (map (mapgtree f) ts)
+
+dynamic :: Int -> Color -> Board -> Int
+dynamic n c = minimax . mapgtree score . prune n . gametree c
+
+-- bmx :: Int -> Int -> GameTree -> Int
+-- bmx a b gt = a `max` (minimax gt) `min` b
+
+bmx :: Int -> Int -> GameTree -> Int
+bmx a b (ScoreNode n c b' []) = a `max` n `min` b
+bmx a b (ScoreNode n c b' ts) = cmx a b ts
+
+cmx :: Int -> Int -> [GameTree] -> Int
+cmx a b [] = a
+cmx a b (t:ts) = if a' == b
+                 then a'
+                 else cmx a' b ts
+  where a' = - (bmx (-b) (-a) t)
+
+-- cmx :: Int -> Int -> [GameTree] -> Int
+-- cmx a b gt = a `max` (- (minimum (map minimax gt))) `min` b
 
 -- legalMoves :: BoardState -> BoardState
 -- legalMoves bs = res
@@ -603,3 +643,44 @@ prune n (Node c b ts) = Node c b (map (prune (pred n)) ts)
 firstMove = initialBoard { whitePawns = 0b0000000000000000000000000000000000000000000100001110111100000000 }
 bish = initialBoard { whiteBishops =    0b0000000000000000000000000010000000001000000000000000000000000000 }
 baz = initialBoard { whitePawns   = 0b0000000000000000000000000000000000000000000000001111110100000000 }
+
+nextBoard = initialBoard { whiteKnights = 0b0000000000000000000000000000000000000000000001000000000000000000,
+                         blackPawns = 0b1111111111101111000000000001000000000000000000000000000000000000}
+
+nextBoard' = initialBoard { whiteKnights = 0b0000000000000000000000000000000000000000000001000000000000000000,
+                         blackPawns = 0b0000000011100111000010000001000000000000000000000000000000000000,
+                         whitePawns = 0b0000000000000000000000000000000000000000000010001111011100000000}
+
+-- aiMove :: Board -> Int
+aiMove :: Board -> Int
+aiMove b = bmx (-287) 335 (mapgtree score $ prune 4 $ gametree White b)
+
+findAiMove :: Board -> GameTree
+findAiMove board = extractMove $ head $ filter (findGTNode (aiMove board)) $ xs
+  where ScoreNode n c b xs = mapgtree score (prune 4 (gametree White board))
+
+extractMove (ScoreNode n c b _) = ScoreNode n c b []
+
+findGTNode :: Int -> GameTree -> Bool
+findGTNode n (ScoreNode n' c b _) = n == n'
+
+nextMove :: GameTree -> PieceType -> Int -> Int -> GameTree
+nextMove (ScoreNode _ _ b _) p x y = findAiMove (movePiece Black p x y b)
+
+-- movePiece :: Color
+--           -> PieceType
+--           -> Int
+--           -> Int
+--           -> Board
+--           -> Board
+
+{-| Starting position, little endian rank-file mapping:
+      56 57 58 59 60 61 62 63
+      48 49 50 51 52 53 54 55
+      40 41 42 43 44 45 46 47
+      32 33 34 35 36 37 38 39
+      24 25 26 27 28 29 30 31
+      16 17 18 19 20 21 22 23
+      08 09 10 11 12 13 14 15
+      00 01 02 03 04 05 06 07
+|-}
