@@ -1,5 +1,5 @@
-{-# LANGUAGE BinaryLiterals       #-}
-{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE BinaryLiterals    #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Cheese where
 
@@ -36,7 +36,8 @@ data PieceType = Pawn
                | Queen
                | King
 
-pieceTypes = [Pawn, Knight, Bishop, Rook, Queen, King]
+-- pieceTypes = [Pawn, Knight, Bishop, Rook, Queen, King]
+pieceTypes = [Knight, Pawn, Bishop, Rook, Queen, King]
 
 -- | Board representation (bitboard).
 data Board = Board
@@ -83,16 +84,11 @@ getConstructor Black Queen  = blackQueens
 getConstructor Black King   = blackKing
 
 data Color = Black | White
-           deriving (Eq)
+           deriving (Eq, Show)
 
-instance Show Color where
-  show Black = "Black"
-  show White = "White"
-
-data BoardState = BoardState
-    { boards :: [Board]
-    , turn   :: Color
-    } deriving (Eq)
+notColor :: Color -> Color
+notColor Black = White
+notColor White = Black
 
 -- | Board layers as a list instead of as data fields.
 lsLayers :: Maybe Color -> Board -> [BoardLayer]
@@ -204,9 +200,6 @@ instance Show Board where
           initial    = layerStr 0 '⬜'
           xs         = zipWith layerStr eachLayer eachLetter
           eachLayer  = lsLayers Nothing board
-
-instance Show BoardState where
-  show (BoardState boards turn) = "Turn: " ++ show turn ++ "\n" ++ show boards
 
 -- | Rename infix `or` to word (exists in Data.Bits but is not exported).
 bitwiseOr :: Bits a => a -> a -> a
@@ -408,16 +401,6 @@ isolate''' = emptyBoard
 -- p p . p . p p . . . . . . . . .
 -- . . . . . . . . . . . . . . . .
 
-{-| Starting position, little endian rank-file mapping:
-      56 57 58 59 60 61 62 63
-      48 49 50 51 52 53 54 55
-      40 41 42 43 44 45 46 47
-      32 33 34 35 36 37 38 39
-      24 25 26 27 28 29 30 31
-      16 17 18 19 20 21 22 23
-      08 09 10 11 12 13 14 15
-      00 01 02 03 04 05 06 07
-|-}
 -- occupancy = 0b0010100001100101100010100010000000001010010000001010101101011000
 occupancy :: Board
 occupancy = emptyBoard {
@@ -478,7 +461,6 @@ queenMoves c sq b = (rook .|. bishop, sq)
   where (rook,_)   = (rookMoves c sq b)
         (bishop,_) = (bishopMoves c sq b)
 
--- ex: movePiece White Queen 3 12 whiteQueens firstMove
 movePiece :: Color
           -> PieceType
           -> Int
@@ -517,17 +499,114 @@ pieceMovesEach c t b =
         someMove (onePiece, src)       = (getMovesFunc t) c src onePiece
         eachMove' (isolatedBoard, src) = eachMove c t b isolatedBoard src
 
-allMoves :: BoardState -> BoardState
-allMoves (BoardState boards' turn') =
-  BoardState
-  { boards = boards''
-  , turn   = turn''
-  }
-  where
-    boards'' = foldMap (foldMap (pieceMovesEach turn') pieceTypes) boards'
-    turn'' = case turn' of
-      White -> Black
-      Black -> White
+allMoves :: Color -> Board-> [Board]
+allMoves c b = foldMap (pieceMovesEach c) pieceTypes b
+
+-- allMoves :: BoardState -> BoardState
+-- allMoves (BoardState turn' boards') =
+--   BoardState
+--   { boards = boards''
+--   , turn   = turn''
+--   }
+--   where
+--     boards'' = foldMap (foldMap (pieceMovesEach turn') pieceTypes) boards'
+--     turn'' = case turn' of
+--       White -> Black
+--       Black -> White
+
+{-| Starting position, little endian rank-file mapping:
+      56 57 58 59 60 61 62 63
+      48 49 50 51 52 53 54 55
+      40 41 42 43 44 45 46 47
+      32 33 34 35 36 37 38 39
+      24 25 26 27 28 29 30 31
+      16 17 18 19 20 21 22 23
+      08 09 10 11 12 13 14 15
+      00 01 02 03 04 05 06 07
+|-}
+
+--                      outer
+--            outer     outer
+--  center    center    center
+
+-- 00000000  00000000  00000000
+-- 00000000  00000000  01111110
+-- 00000000  00111100  01000010
+-- 00011000  00100100  01000010
+-- 00011000  00100100  01000010
+-- 00000000  00111100  01000010
+-- 00000000  00000000  01111110
+-- 00000000  00000000  00000000
+
+center :: BoardLayer
+center =           0b0000000000000000000000000001100000011000000000000000000000000000
+outerCenter :: BoardLayer
+outerCenter =      0b0000000000000000001111000010010000100100001111000000000000000000
+outerOuterCenter :: BoardLayer
+outerOuterCenter = 0b0000000001111110010000100100001001000010010000100111111000000000
+
+centrality :: Color -> Board -> Int
+centrality c b = centralityMeasure together
+  where together = orFold (lsLayers (Just c) b)
+        centralityMeasure x = sum [50 * popCount (center .&. x)
+                                  ,30 * popCount (outerCenter .&. x)
+                                  ,22 * popCount (outerOuterCenter .&. x)]
+
+kingWt :: Int
+kingWt = 200
+
+queenWt :: Int
+queenWt = 9
+
+rookWt :: Int
+rookWt = 5
+
+knightWt :: Int
+knightWt = 3
+
+bishopWt :: Int
+bishopWt = 3
+
+pawnWt :: Int
+pawnWt = 1
+
+score :: Board -> Int
+score b = kingWt   * (wK-bK) +
+          queenWt  * (wQ-bQ) +
+          rookWt   * (wR-bR) +
+          knightWt * (wN-bN) +
+          bishopWt * (wB-bB) +
+          pawnWt   * (wP-bP) +
+          (centrality White b) - ((centrality Black b) `div` 2)
+  where [wP, wN, wB, wR, wQ, wK, bP, bN, bB, bR, bQ, bK] =
+          map popCount $ lsLayers Nothing b
+
+data GameTree = Node Color Board [GameTree]
+              deriving (Eq)
+
+instance Show GameTree where
+  show (Node c b ts) = "Next move is by: " ++ (show c) ++ "\n" ++ show b ++ show ts
+
+reptree
+  :: (Color -> Board -> [Board])
+  ->  Color -> Board -> GameTree
+reptree f c b = Node c b (map (reptree f (notColor c)) (f c b))
+
+gametree :: Color -> Board -> GameTree
+gametree c b = reptree allMoves c b
+
+prune :: Int -> GameTree -> GameTree
+prune 0 (Node c b ts) = Node c b []
+prune n (Node c b ts) = Node c b (map (prune (pred n)) ts)
+
+-- legalMoves :: BoardState -> BoardState
+-- legalMoves bs = res
+--   where (boards, turn) = allMoves bs
+--         res = filter
+--         f = case turn of
+--           White -> (\x -> (orFold (lsLayers Just Black) x)
+--           Black -> (\x -> (orFold (lsLayers Just White) x)
+
 
 -- testRound :: Color -> Board -> BoardLayer
 -- testRound c b = orFold [(pawnMoves c b)
@@ -546,3 +625,4 @@ allMoves (BoardState boards' turn') =
                        -- ,(queenMoves c 3 b)]
 firstMove = initialBoard { whitePawns = 0b0000000000000000000000000000000000000000000100001110111100000000 }
 bish = initialBoard { whiteBishops =    0b0000000000000000000000000010000000001000000000000000000000000000 }
+baz = initialBoard { whitePawns   = 0b0000000000000000000000000000000000000000000000001111110100000000 }
