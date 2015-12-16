@@ -1,3 +1,25 @@
 * Cheese: A Chess AI
 
 This is my project for [[https://www.cs.csustan.edu/~mmartin/4480/][CS 4480: Artificial Intelligence]].
+
+** How to build / run
+TO build, you'll need
+
+- GHC
+- The Stack build tool
+
+After installing those two, use stack to install all dependencies with ~stack
+build~.
+There should be an executable called ~stack-exe~ in your path. Currently the only
+way to run the AI is move-by-move, from the REPL.
+
+You'll need to start up the GHC repl, specifically ~stack ghci~.
+
+Then load the file with ~:l Cheese~.
+
+Start with ~findAiMove initialBoard~, and from there you get back a ~GameTree~,
+which you can reference with ~it~. So now, use ~nextMove <piece> <from> <to>
+it~. Take a look at the comment with the numbered board so that you know from
+where to where.
+
+That's it. There is a bug with the opponent's captures not always capturing.
